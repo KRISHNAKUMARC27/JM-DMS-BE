@@ -1,0 +1,5 @@
+spring:
+  application:
+    name: jm_dms
+  main:
+    allow-circular-references: true
