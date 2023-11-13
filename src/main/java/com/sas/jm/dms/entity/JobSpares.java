@@ -1,0 +1,24 @@
+package com.sas.jm.dms.entity;
+
+import java.math.BigDecimal;
+import java.util.List;
+
+import org.springframework.data.annotation.Id;
+
+import lombok.Builder;
+import lombok.Data;
+
+@Data
+@Builder
+public class JobSpares {
+	
+	@Id
+	private String id;
+	
+	private Integer jobId;
+	private List<JobSparesInfo> jobSparesInfo;
+	private BigDecimal totalSparesValue;
+	private BigDecimal totalLabourValue;
+	private BigDecimal grandTotal;
+
+}

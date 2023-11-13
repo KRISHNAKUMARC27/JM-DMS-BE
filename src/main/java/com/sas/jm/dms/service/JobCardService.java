@@ -1,5 +1,6 @@
 package com.sas.jm.dms.service;
 
+import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
@@ -11,7 +12,9 @@ import org.springframework.stereotype.Service;
 
 import com.sas.jm.dms.entity.JobCard;
 import com.sas.jm.dms.entity.JobCardCounters;
+import com.sas.jm.dms.entity.JobSpares;
 import com.sas.jm.dms.repository.JobCardRepository;
+import com.sas.jm.dms.repository.JobSparesRepository;
 
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -22,6 +25,7 @@ import lombok.extern.slf4j.Slf4j;
 public class JobCardService {
 
 	private final JobCardRepository jobCardRepository;
+	private final JobSparesRepository jobSparesRepository;
 
 	private final MongoTemplate mongoTemplate;
 
@@ -31,7 +35,8 @@ public class JobCardService {
 		Update update = new Update().inc("sequenceValue", 1);
 		FindAndModifyOptions findAndModifyOptions = FindAndModifyOptions.options().returnNew(true);
 
-		JobCardCounters counter = mongoTemplate.findAndModify(query, update, findAndModifyOptions, JobCardCounters.class);
+		JobCardCounters counter = mongoTemplate.findAndModify(query, update, findAndModifyOptions,
+				JobCardCounters.class);
 
 		if (counter == null) {
 			throw new RuntimeException("Error getting next sequence for " + sequenceName);
@@ -47,5 +52,21 @@ public class JobCardService {
 	public JobCard save(JobCard jobCard) {
 		jobCard.setJobId(getNextSequence("jobCardId"));
 		return jobCardRepository.save(jobCard);
+	}
+
+	public List<?> findAllByJobStatus(String status) {
+		return jobCardRepository.findAllByJobStatusOrderByIdDesc(status);
+	}
+
+	public JobCard update(JobCard jobCard) {
+		return jobCardRepository.save(jobCard);
+	}
+
+	public JobSpares updateJobSpares(JobSpares jobSpares) {
+		return jobSparesRepository.save(jobSpares);
+	}
+
+	public JobSpares getJobSpares(String id) {
+		return jobSparesRepository.findById(id).orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>()).build());
 	}
 }
