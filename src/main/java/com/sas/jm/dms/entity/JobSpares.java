@@ -17,6 +17,7 @@ public class JobSpares {
 	
 	private Integer jobId;
 	private List<JobSparesInfo> jobSparesInfo;
+	private List<JobSparesInfo> jobLaborInfo;
 	private BigDecimal totalSparesValue;
 	private BigDecimal totalLabourValue;
 	private BigDecimal grandTotal;

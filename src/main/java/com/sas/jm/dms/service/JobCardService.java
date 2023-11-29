@@ -1,5 +1,6 @@
 package com.sas.jm.dms.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 
@@ -26,6 +27,7 @@ public class JobCardService {
 
 	private final JobCardRepository jobCardRepository;
 	private final JobSparesRepository jobSparesRepository;
+	private final SparesService sparesService;
 
 	private final MongoTemplate mongoTemplate;
 
@@ -51,6 +53,7 @@ public class JobCardService {
 
 	public JobCard save(JobCard jobCard) {
 		jobCard.setJobId(getNextSequence("jobCardId"));
+		jobCard.setJobCreationDate(LocalDateTime.now());
 		return jobCardRepository.save(jobCard);
 	}
 
@@ -63,10 +66,12 @@ public class JobCardService {
 	}
 
 	public JobSpares updateJobSpares(JobSpares jobSpares) {
+		
 		return jobSparesRepository.save(jobSpares);
 	}
 
 	public JobSpares getJobSpares(String id) {
-		return jobSparesRepository.findById(id).orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>()).build());
+		return jobSparesRepository.findById(id)
+				.orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>()).jobLaborInfo(new ArrayList<>()).build());
 	}
 }
