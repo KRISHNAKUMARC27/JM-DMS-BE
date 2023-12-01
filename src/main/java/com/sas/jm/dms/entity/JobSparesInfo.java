@@ -9,6 +9,7 @@ import lombok.Data;
 @Builder
 public class JobSparesInfo {
 
+	private String sparesId;
 	private String category;
 	private String sparesAndLabour;
 	private BigDecimal qty;

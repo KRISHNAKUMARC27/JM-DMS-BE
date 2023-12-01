@@ -42,8 +42,21 @@ public class JobCardController {
 	}
 
 	@PutMapping
-	public JobCard update(@RequestBody JobCard jobCard) {
-		return jobCardService.update(jobCard);
+	public ResponseEntity<?> update(@RequestBody JobCard jobCard) {
+		try {
+			return ResponseEntity.ok().body(jobCardService.update(jobCard));
+		} catch (Exception ex) {
+			return ResponseEntity.badRequest().body(ex.getMessage());
+		}
+	}
+	
+	@PutMapping("/jobStatus")
+	public ResponseEntity<?> updateJobStatus(@RequestBody JobCard jobCard) {
+		try {
+			return ResponseEntity.ok().body(jobCardService.updateJobStatus(jobCard));
+		} catch (Exception ex) {
+			return ResponseEntity.badRequest().body(ex.getMessage());
+		}
 	}
 
 	@GetMapping("/jobSpares/{id}")

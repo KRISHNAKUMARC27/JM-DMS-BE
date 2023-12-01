@@ -25,9 +25,17 @@ public class SparesService {
 	public List<?> findAll() {
 		return sparesInventoryRepository.findAllByOrderByIdDesc();
 	}
+	
+	public SparesInventory findById(String id) {
+		return sparesInventoryRepository.findById(id).orElse(null);
+	}
 
 	public SparesInventory save(SparesInventory spares) {
 		spares.setUpdateDate(LocalDateTime.now());
+		if(spares.getMinThresh().compareTo(spares.getQty()) > 0) {
+			spares.setMinThreshDate(LocalDateTime.now());
+			//send notification or dashboard alerts
+		}
 		return sparesInventoryRepository.save(spares);
 	}
 
