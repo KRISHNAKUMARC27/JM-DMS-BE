@@ -2,6 +2,9 @@ package com.sas.jm.dms.controller;
 
 import java.util.List;
 
+import org.springframework.core.io.ByteArrayResource;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,7 +52,7 @@ public class JobCardController {
 			return ResponseEntity.badRequest().body(ex.getMessage());
 		}
 	}
-	
+
 	@PutMapping("/jobStatus")
 	public ResponseEntity<?> updateJobStatus(@RequestBody JobCard jobCard) {
 		try {
@@ -71,5 +74,17 @@ public class JobCardController {
 		} catch (Exception ex) {
 			return ResponseEntity.badRequest().body(ex.getMessage());
 		}
+	}
+
+	@GetMapping("/pdf/{id}")
+	public ResponseEntity<?> generateJobCardPdf(@PathVariable String id) {
+
+		try {
+			return jobCardService.generateJobCardPdf(id);
+		} catch (Exception e) {
+
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+
 	}
 }

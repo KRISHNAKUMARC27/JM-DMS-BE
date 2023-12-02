@@ -34,7 +34,20 @@ public class JobCard implements Serializable {
 	private Integer kiloMeters;
 	private String technicianName;
 	private String driver;
+	private String fuelPoints;
+
 	private LocalDateTime vehicleOutDate;
+	
+	private String cover;
+	private String glass;
+	private String dashboardAndTools;
+	private String spareWheel;
+	private String jackeyHandles;
+	private String toolKits;
+	private String penDrive;
+	private String wheelCap;
+	private String acGrills;
+	
 	private List<JobCardInfo> jobInfo;
 
 }
