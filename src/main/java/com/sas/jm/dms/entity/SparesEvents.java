@@ -1,6 +1,7 @@
 package com.sas.jm.dms.entity;
 
 import java.io.Serializable;
+import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
 
@@ -13,13 +14,14 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @NoArgsConstructor
 @Builder
-public class SparesCategory implements Serializable {
+public class SparesEvents implements Serializable {
 
 	private static final long serialVersionUID = 1L;
 
 	@Id
 	private String id;
 
-	private String category;
-	private Integer sparesCount; //count of spares under this category
+	private String sparesId;
+	private String notif;
+	private LocalDateTime time;
 }

@@ -2,9 +2,6 @@ package com.sas.jm.dms.controller;
 
 import java.util.List;
 
-import org.springframework.core.io.ByteArrayResource;
-import org.springframework.http.HttpHeaders;
-import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -49,6 +46,7 @@ public class JobCardController {
 		try {
 			return ResponseEntity.ok().body(jobCardService.update(jobCard));
 		} catch (Exception ex) {
+			ex.printStackTrace();
 			return ResponseEntity.badRequest().body(ex.getMessage());
 		}
 	}
@@ -58,6 +56,7 @@ public class JobCardController {
 		try {
 			return ResponseEntity.ok().body(jobCardService.updateJobStatus(jobCard));
 		} catch (Exception ex) {
+			ex.printStackTrace();
 			return ResponseEntity.badRequest().body(ex.getMessage());
 		}
 	}
@@ -72,6 +71,7 @@ public class JobCardController {
 		try {
 			return ResponseEntity.ok().body(jobCardService.updateJobSpares(jobSparesInfo));
 		} catch (Exception ex) {
+			ex.printStackTrace();
 			return ResponseEntity.badRequest().body(ex.getMessage());
 		}
 	}
@@ -82,7 +82,7 @@ public class JobCardController {
 		try {
 			return jobCardService.generateJobCardPdf(id);
 		} catch (Exception e) {
-
+			e.printStackTrace();
 			return ResponseEntity.badRequest().body(e.getMessage());
 		}
 

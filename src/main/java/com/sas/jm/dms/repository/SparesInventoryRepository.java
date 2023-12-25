@@ -10,4 +10,6 @@ public interface SparesInventoryRepository extends MongoRepository<SparesInvento
 
 	List<SparesInventory> findAllByOrderByIdDesc();
 	SparesInventory findByDescAndCategory(String desc, String category);
+	//void deleteByCategory(String category);
+	Integer countByCategory(String category); 
 }

@@ -28,6 +28,7 @@ public class JobCard implements Serializable {
 	private String ownerName;
 	private String ownerAddress;
 	private String ownerPhoneNumber;
+	private String ownerEmailId;
 	private String vehicleRegNo;
 	private String vehicleName;
 	private String vehicleModel;

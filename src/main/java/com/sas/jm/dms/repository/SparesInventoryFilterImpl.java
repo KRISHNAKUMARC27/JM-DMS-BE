@@ -7,6 +7,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
 import org.springframework.data.mongodb.core.query.Query;
+import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 
 import com.sas.jm.dms.entity.SparesInventory;
@@ -34,6 +35,12 @@ public class SparesInventoryFilterImpl implements SparesInventoryFilter {
 	    }
 
 		return mongoTemplate.find(query, SparesInventory.class);
+	}
+	
+	public void updateCategory(String oldCategory, String newCategory) {
+	    Query query = new Query(Criteria.where("category").is(oldCategory));
+	    Update update = new Update().set("category", newCategory);
+	    mongoTemplate.updateMulti(query, update, SparesInventory.class);
 	}
 
 }

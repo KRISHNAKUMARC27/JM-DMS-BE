@@ -5,6 +5,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 
 import org.springframework.data.annotation.Id;
+import org.springframework.data.annotation.Version;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -21,7 +22,7 @@ public class SparesInventory implements Serializable {
 
 	@Id
 	private String id;
-	
+
 	private String category;
 	private String partNumber;
 	private String desc;
@@ -32,9 +33,12 @@ public class SparesInventory implements Serializable {
 	private BigDecimal minThresh;
 	private LocalDateTime minThreshDate;
 	private LocalDateTime updateDate;
-	
+
 	private String rack;
 	private String misc1;
 	private String misc2;
 	private String misc3;
+
+	@Version
+	private Long version;
 }

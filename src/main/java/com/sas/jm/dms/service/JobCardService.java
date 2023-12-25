@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.springframework.core.io.ByteArrayResource;
+import org.springframework.dao.OptimisticLockingFailureException;
 import org.springframework.data.mongodb.core.FindAndModifyOptions;
 import org.springframework.data.mongodb.core.MongoTemplate;
 import org.springframework.data.mongodb.core.query.Criteria;
@@ -30,6 +31,7 @@ import com.itextpdf.layout.properties.HorizontalAlignment;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
 import com.itextpdf.layout.properties.VerticalAlignment;
+import com.sas.jm.dms.email.EmailService;
 import com.sas.jm.dms.entity.JobCard;
 import com.sas.jm.dms.entity.JobCardCounters;
 import com.sas.jm.dms.entity.JobCardInfo;
@@ -50,8 +52,11 @@ public class JobCardService {
 	private final JobCardRepository jobCardRepository;
 	private final JobSparesRepository jobSparesRepository;
 	private final SparesService sparesService;
+	private final EmailService emailService;
 
 	private final MongoTemplate mongoTemplate;
+
+	private String[] emailRecepients = { "krishnakumarc27@gmail.com" };
 
 	public int getNextSequence(String sequenceName) {
 		// Find the counter document and increment its sequence_value atomically
@@ -76,7 +81,10 @@ public class JobCardService {
 	public JobCard save(JobCard jobCard) {
 		jobCard.setJobId(getNextSequence("jobCardId"));
 		jobCard.setJobCreationDate(LocalDateTime.now());
-		return jobCardRepository.save(jobCard);
+		jobCard = jobCardRepository.save(jobCard);
+
+		sendNotifications("JobCard opened - " + jobCard.getJobId(), jobCard.toString());
+		return jobCard;
 	}
 
 	public List<?> findAllByJobStatus(String status) {
@@ -99,7 +107,11 @@ public class JobCardService {
 					BigDecimal result = spares.getQty().subtract(jobSparesInfo.getQty());
 					spares.setQty(result);
 					spares.setAmount(spares.getSellRate().multiply(result));
-					sparesService.save(spares);
+					try {
+						sparesService.saveFromJobSpares(spares);
+					} catch (OptimisticLockingFailureException e) {
+						throw new Exception("Please retry!! Concurrent modification detected for " + spares.getDesc());
+					}
 				}
 			} else {
 				throw new Exception(jobSparesInfo.getSparesAndLabour() + " is not found in Spares Inventory ");
@@ -131,14 +143,13 @@ public class JobCardService {
 			// should never come here
 		}
 		origJobCard.setJobStatus(jobCard.getJobStatus());
+
+		sendNotifications("JobCard - " + jobCard.getJobId() + " status " + jobCard.getJobStatus(), jobCard.toString());
+
 		return jobCardRepository.save(origJobCard);
 	}
 
 	public ResponseEntity<?> generateJobCardPdf(String id) throws Exception {
-		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
-		PdfWriter pdfWriter = new PdfWriter(outputStream);
-		PdfDocument pdfDocument = new PdfDocument(pdfWriter);
-		Document document = new Document(pdfDocument);
 
 		JobCard jobCard = jobCardRepository.findById(id).orElse(null);
 		JobSpares jobSpares = jobSparesRepository.findById(id).orElse(null);
@@ -159,22 +170,28 @@ public class JobCardService {
 		table.addCell(
 				new Paragraph("").add(image).setVerticalAlignment(VerticalAlignment.MIDDLE).setKeepTogether(true));
 
-		table.addCell(createCellWithFixedSpace("Job Card No: ", stringNullCheck(jobCard.getJobId()), "\n",
-				"Owner: " , stringNullCheck(jobCard.getOwnerName()), "\n",
-				"Address: ", stringNullCheck(jobCard.getOwnerAddress())).setVerticalAlignment(VerticalAlignment.MIDDLE)
+		table.addCell(createCellWithFixedSpace("Job Card No: ", stringNullCheck(jobCard.getJobId()), "\n", "Owner: ",
+				stringNullCheck(jobCard.getOwnerName()), "\n", "Contact No: ",
+				stringNullCheck(jobCard.getOwnerPhoneNumber())).setVerticalAlignment(VerticalAlignment.MIDDLE)
 				.setHorizontalAlignment(HorizontalAlignment.LEFT));
 
 		table.addCell(createCellWithFixedSpace("Date: ", createDateString(jobCard.getJobCreationDate()), "\n",
-				"Contact No: ", stringNullCheck(jobCard.getOwnerPhoneNumber()), "\n",
-				"Driver: ", stringNullCheck(jobCard.getDriver())).setFontSize(11)
-				.setVerticalAlignment(VerticalAlignment.MIDDLE).setHorizontalAlignment(HorizontalAlignment.LEFT));
+				"Email: ", stringNullCheck(jobCard.getOwnerEmailId()), "\n", "Driver: ",
+				stringNullCheck(jobCard.getDriver())).setFontSize(11).setVerticalAlignment(VerticalAlignment.MIDDLE)
+				.setHorizontalAlignment(HorizontalAlignment.LEFT));
+
+		Table singleColumnTable = new Table(UnitValue.createPercentArray(new float[] { 100 }));
+		singleColumnTable.setWidth(UnitValue.createPercentValue(100));
+		singleColumnTable.addCell(createCellWithFixedSpace("Address: ", stringNullCheck(jobCard.getOwnerAddress()))
+				.setFontSize(11).setVerticalAlignment(VerticalAlignment.MIDDLE)
+				.setHorizontalAlignment(HorizontalAlignment.LEFT));
 
 		Table doubleColumnTable = new Table(UnitValue.createPercentArray(new float[] { 50, 50 }));
 		doubleColumnTable.setWidth(UnitValue.createPercentValue(100));
 		Cell ColumnCell = new Cell()
 				.add(createCellWithFixedSpace("Vehicle Reg. No: ", stringNullCheck(jobCard.getVehicleRegNo()), "\n",
-						"Vehicle Model: ", stringNullCheck(jobCard.getVehicleModel()), "\n",
-						"Technician Name: ", stringNullCheck(jobCard.getTechnicianName())));
+						"Vehicle Model: ", stringNullCheck(jobCard.getVehicleModel()), "\n", "Technician Name: ",
+						stringNullCheck(jobCard.getTechnicianName())));
 
 		doubleColumnTable.addCell(ColumnCell);
 
@@ -194,7 +211,7 @@ public class JobCardService {
 		table1.addCell(okCell);
 		Cell notOkCell = new Cell().add(new Paragraph("NOT OK")).setTextAlignment(TextAlignment.CENTER).setBold();
 		table1.addCell(notOkCell);
-		Image image1 = new Image(ImageDataFactory.create("classpath:jm_car_image.jpeg"));
+		Image image1 = new Image(ImageDataFactory.create("classpath:jm_scratch_pic.jpg"));
 
 		image1.setMaxHeight(720);
 		image1.setMaxWidth(150);
@@ -327,7 +344,36 @@ public class JobCardService {
 					new Paragraph(stringNullCheck(jobSpares.getGrandTotal())).setTextAlignment(TextAlignment.RIGHT)));
 		}
 
+//		try (ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+//				PdfWriter pdfWriter = new PdfWriter(outputStream);
+//				PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+//				Document document = new Document(pdfDocument)) {
+//
+//			document.add(table);
+//			document.add(singleColumnTable);
+//			document.add(doubleColumnTable);
+//			document.add(table1);
+//			document.add(table2);
+//			if (table3 != null) {
+//				document.add(table3);
+//			}
+//			ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
+//			String filename = jobCard.getJobId() + "_" + jobCard.getVehicleRegNo() + ".pdf";
+//			HttpHeaders headers = new HttpHeaders();
+//			headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename);
+//			return ResponseEntity.ok().headers(headers).contentLength(resource.contentLength())
+//					.contentType(MediaType.APPLICATION_PDF).body(resource);
+//		} catch (Exception e) {
+//			throw new Exception(e);
+//		}
+
+		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
+		PdfWriter pdfWriter = new PdfWriter(outputStream);
+		PdfDocument pdfDocument = new PdfDocument(pdfWriter);
+		Document document = new Document(pdfDocument);
+
 		document.add(table);
+		document.add(singleColumnTable);
 		document.add(doubleColumnTable);
 		document.add(table1);
 		document.add(table2);
@@ -335,8 +381,10 @@ public class JobCardService {
 			document.add(table3);
 		}
 		document.close();
+		pdfDocument.close();
+		pdfWriter.close();
+		outputStream.close();
 
-		// Wrap the PDF content in a ByteArrayResource
 		ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
 		String filename = jobCard.getJobId() + "_" + jobCard.getVehicleRegNo() + ".pdf";
 		HttpHeaders headers = new HttpHeaders();
@@ -347,7 +395,7 @@ public class JobCardService {
 
 	private Paragraph createCellWithFixedSpace(String... texts) {
 		// TODO Auto-generated method stub
-		String regex = "Job Card No: |Owner: |Address: |Contact No: |Driver: |Vehicle Reg. No: |Vehicle Model: |Technician Name: |Type of Vehicle: |K.M: |Vehicle Out Date: |Date: ";
+		String regex = "Job Card No: |Owner: |Address: |Contact No: |Driver: |Vehicle Reg. No: |Vehicle Model: |Technician Name: |Type of Vehicle: |K.M: |Vehicle Out Date: |Date: |Email: ";
 		Paragraph paragraph = new Paragraph();
 		for (String text : texts) {
 			if (text.equals("\n")) {
@@ -398,4 +446,9 @@ public class JobCardService {
 		return "";
 	}
 
+	private void sendNotifications(String title, String body) {
+//		EmailDetails emailDetails = EmailDetails.builder().msgBody(title).subject(title).build();
+//		emailService.sendTableMail(emailDetails, emailRecepients, body);
+
+	}
 }
