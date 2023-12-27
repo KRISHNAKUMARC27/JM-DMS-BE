@@ -26,10 +26,10 @@ public class SparesService {
 	private final SparesEventsRepository sparesEventsRepository;
 
 	public List<?> findAll() {
-		return sparesInventoryRepository.findAllByOrderByIdDesc();
+		return sparesInventoryRepository.findAllByOrderByUpdateDateDesc();
 	}
-
-	public SparesInventory findById(String id) {
+	
+	public SparesInventory findById(String id) throws Exception {
 		return sparesInventoryRepository.findById(id).orElse(null);
 	}
 

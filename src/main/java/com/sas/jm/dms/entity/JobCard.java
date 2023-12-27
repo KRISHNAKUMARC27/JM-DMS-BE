@@ -25,6 +25,7 @@ public class JobCard implements Serializable {
 	private Integer jobId;
 	private String jobStatus;
 	private LocalDateTime jobCreationDate;
+	private LocalDateTime jobCloseDate;
 	private String ownerName;
 	private String ownerAddress;
 	private String ownerPhoneNumber;
