@@ -1,6 +1,8 @@
 package com.sas.jm.dms.controller;
 
+import java.math.BigDecimal;
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
@@ -36,4 +38,47 @@ public class StatsController {
 			return ResponseEntity.badRequest().body(e.getMessage());
 		}
 	}
+
+	@GetMapping("/revenueEarnings/{id}")
+	public Map<String, Object> getCurrentWeekEarnings(@PathVariable String id) {
+		switch (id) {
+		case "D":
+			return statsService.dailyStats();
+		case "W":
+			return statsService.weeklyStats();
+		case "M":
+			return statsService.monthlyStats();
+		case "Y":
+			return statsService.yearlyStats();
+		default:
+			return statsService.dailyStats();
+		}
+	}
+
+	@GetMapping("/totalJobCards/{id}")
+	public Map<String, Object> getTotalJobCards(@PathVariable String id) {
+		switch (id) {
+		case "D":
+			return statsService.dailyStatsJobCards();
+		case "W":
+			return statsService.weeklyStatsJobCards();
+		case "M":
+			return statsService.monthlyStatsJobCards();
+		case "Y":
+			return statsService.yearlyStatsJobCards();
+		default:
+			return statsService.dailyStatsJobCards();
+		}
+	}
+
+	@GetMapping("/totalRevenue")
+	public Map<String, BigDecimal> getTotalRevenue() {
+		return statsService.getTotalRevenue();
+	}
+
+	@GetMapping("/totalJobCards")
+	public Map<String, Long> getTotalJobCards() {
+		return statsService.getTotalJobCards();
+	}
+
 }

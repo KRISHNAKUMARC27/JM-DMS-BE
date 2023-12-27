@@ -1,5 +1,6 @@
 package com.sas.jm.dms.repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.data.mongodb.repository.MongoRepository;
@@ -10,5 +11,7 @@ public interface JobCardRepository extends MongoRepository<JobCard, String> {
 	
 	List<JobCard> findAllByOrderByIdDesc();
 	List<JobCard> findAllByJobStatusOrderByIdDesc(String jobStatus);
+    List<JobCard> findByJobCloseDateBetween(LocalDateTime start, LocalDateTime end);
+    Long countByJobStatus(String jobStatus);
 
 }

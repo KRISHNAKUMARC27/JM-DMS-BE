@@ -222,7 +222,13 @@ public class JobCardService {
 								+ origJobCard.getJobId());
 					}
 				}
-				origJobCard.setJobCloseDate(LocalDateTime.now());
+				LocalDateTime jobCloseDate = LocalDateTime.now();
+				origJobCard.setJobCloseDate(jobCloseDate);
+				JobSpares origJobSpares = jobSparesRepository.findById(jobCard.getId()).orElse(null);
+				if (origJobSpares != null) {
+					origJobSpares.setJobCloseDate(jobCloseDate);
+					jobSparesRepository.save(origJobSpares);
+				}
 			}
 		} else {
 			throw new Exception("Invalid jobCard " + jobCard.getJobId());
