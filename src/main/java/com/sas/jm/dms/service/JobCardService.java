@@ -302,7 +302,7 @@ public class JobCardService {
 		table1.addCell(okCell);
 		Cell notOkCell = new Cell().add(new Paragraph("NOT OK")).setTextAlignment(TextAlignment.CENTER).setBold();
 		table1.addCell(notOkCell);
-		Image image1 = new Image(ImageDataFactory.create("classpath:jm_scratch_pic.jpg"));
+		Image image1 = new Image(ImageDataFactory.create("classpath:jm_scratch_pic.JPG"));
 
 		image1.setMaxHeight(720);
 		image1.setMaxWidth(150);
