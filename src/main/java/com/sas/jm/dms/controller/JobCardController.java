@@ -87,4 +87,16 @@ public class JobCardController {
 		}
 
 	}
+	
+	@GetMapping("/billPdf/{id}")
+	public ResponseEntity<?> generateBillPdf(@PathVariable String id) {
+
+		try {
+			return jobCardService.generateBillPdf(id);
+		} catch (Exception e) {
+			e.printStackTrace();
+			return ResponseEntity.badRequest().body(e.getMessage());
+		}
+
+	}
 }
