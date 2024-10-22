@@ -15,4 +15,5 @@ public class JobSparesInfo {
 	private BigDecimal qty;
 	private BigDecimal rate;
 	private BigDecimal amount;
+	private String action;
 }
