@@ -907,7 +907,7 @@ public class JobCardService {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-				itemTable.addCell(new Cell().add(new Paragraph(sparesInfo.getSparesAndLabour())));
+				itemTable.addCell(new Cell().add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
 				itemTable.addCell(new Cell()
