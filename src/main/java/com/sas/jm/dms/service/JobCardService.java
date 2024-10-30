@@ -4,7 +4,9 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -209,91 +211,101 @@ public class JobCardService {
 //		return jobSparesRepository.save(jobSpares);
 //	}
 
-	@Transactional
 	public synchronized JobSpares updateJobSpares(JobSpares jobSpares) throws Exception {
 
 		// Fetch original job spares from DB
 		JobSpares origJobSpares = jobSparesRepository.findById(jobSpares.getId()).orElse(null);
 		List<JobSparesInfo> jobSparesInfoList = jobSpares.getJobSparesInfo();
-		String exceptionMess = "";
 
-		// Loop through the incoming job spares list
-		for (JobSparesInfo jobSparesInfo : jobSparesInfoList) {
-			SparesInventory spares = sparesService.findById(jobSparesInfo.getSparesId());
-			if (spares == null) {
-				exceptionMess += "Spares ID " + jobSparesInfo.getSparesId() + " not found in inventory.";
-				continue;
+		Map<String, BigDecimal> previousQuantities = new HashMap<>();
+
+		try {
+			// Loop through the incoming job spares list
+			for (JobSparesInfo jobSparesInfo : jobSparesInfoList) {
+				SparesInventory spares = sparesService.findById(jobSparesInfo.getSparesId());
+				SparesInventory origspares = sparesService.findById(jobSparesInfo.getSparesId());
+				if (spares == null) {
+					throw new Exception("Spares ID " + jobSparesInfo.getSparesId() + " not found in inventory.");
+				}
+
+				// Handle ADD action
+				if ("ADD".equals(jobSparesInfo.getAction())) {
+					if (jobSparesInfo.getQty().compareTo(spares.getQty()) > 0) {
+						throw new Exception("Insufficient stock for spare " + spares.getDesc());
+					}
+					// Deduct the quantity
+					spares.setQty(spares.getQty().subtract(jobSparesInfo.getQty()));
+					spares.setAmount(spares.getSellRate().multiply(spares.getQty()));
+					sparesService.saveFromJobSpares(spares);
+					previousQuantities.put(origspares.getId(), origspares.getQty());
+
+					// Handle MODIFY action
+				} else if ("MODIFY".equals(jobSparesInfo.getAction())) {
+					Optional<JobSparesInfo> origJobSparesInfoOpt = origJobSpares != null
+							? origJobSpares.getJobSparesInfo().stream()
+									.filter(info -> info.getSparesId().equals(jobSparesInfo.getSparesId())).findFirst()
+							: Optional.empty();
+
+					if (origJobSparesInfoOpt.isPresent()) {
+						BigDecimal originalQty = origJobSparesInfoOpt.get().getQty();
+						BigDecimal qtyDiff = jobSparesInfo.getQty().subtract(originalQty);
+
+						// Adjust inventory based on qty difference
+						if (qtyDiff.compareTo(BigDecimal.ZERO) > 0) { // Increasing quantity
+							if (qtyDiff.compareTo(spares.getQty()) > 0) {
+								throw new Exception("Insufficient stock for spare " + spares.getDesc());
+							}
+							spares.setQty(spares.getQty().subtract(qtyDiff));
+						} else { // Reducing quantity
+							spares.setQty(spares.getQty().add(qtyDiff.abs()));
+						}
+						spares.setAmount(spares.getSellRate().multiply(spares.getQty()));
+						sparesService.saveFromJobSpares(spares);
+						previousQuantities.put(origspares.getId(), origspares.getQty());
+					} else {
+						throw new Exception("Original spare not found for MODIFY action for spare ID "
+								+ jobSparesInfo.getSparesId());
+					}
+
+					// Handle DELETE action
+				} else if ("DELETE".equals(jobSparesInfo.getAction())) {
+					// Find the original spare in the job spares (to get the correct original
+					// quantity)
+					Optional<JobSparesInfo> origJobSparesInfoOpt = origJobSpares.getJobSparesInfo().stream()
+							.filter(info -> info.getSparesId().equals(jobSparesInfo.getSparesId())).findFirst();
+
+					if (origJobSparesInfoOpt.isPresent()) {
+						BigDecimal originalQty = origJobSparesInfoOpt.get().getQty();
+						// Add the original quantity back to inventory
+						spares.setQty(spares.getQty().add(originalQty));
+						spares.setAmount(spares.getSellRate().multiply(spares.getQty()));
+						sparesService.saveFromJobSpares(spares);
+						previousQuantities.put(origspares.getId(), origspares.getQty());
+					} else {
+						throw new Exception("Original spare not found for DELETE action for spare ID "
+								+ jobSparesInfo.getSparesId());
+					}
+				}
+
 			}
 
-			// Handle ADD action
-			if ("ADD".equals(jobSparesInfo.getAction())) {
-				if (jobSparesInfo.getQty().compareTo(spares.getQty()) > 0) {
-					throw new Exception("Insufficient stock for spare " + spares.getDesc());
-				}
-				// Deduct the quantity
-				spares.setQty(spares.getQty().subtract(jobSparesInfo.getQty()));
+			// **Filter out the job spares marked for DELETE** before saving
+			List<JobSparesInfo> filteredJobSparesInfoList = jobSparesInfoList.stream()
+					.filter(jobSparesInfo -> !"DELETE".equals(jobSparesInfo.getAction())).collect(Collectors.toList());
+
+			// Update the job spares list and set action to null
+			filteredJobSparesInfoList.forEach(jobSparesInfo -> jobSparesInfo.setAction(null));
+			jobSpares.setJobSparesInfo(filteredJobSparesInfoList);
+
+		} catch (Exception ex) {
+			for (Map.Entry<String, BigDecimal> entry : previousQuantities.entrySet()) {
+				SparesInventory spares = sparesService.findById(entry.getKey());
+				spares.setQty(entry.getValue());
 				spares.setAmount(spares.getSellRate().multiply(spares.getQty()));
 				sparesService.saveFromJobSpares(spares);
-
-				// Handle MODIFY action
-			} else if ("MODIFY".equals(jobSparesInfo.getAction())) {
-				Optional<JobSparesInfo> origJobSparesInfoOpt = origJobSpares != null
-						? origJobSpares.getJobSparesInfo().stream()
-								.filter(info -> info.getSparesId().equals(jobSparesInfo.getSparesId())).findFirst()
-						: Optional.empty();
-
-				if (origJobSparesInfoOpt.isPresent()) {
-					BigDecimal originalQty = origJobSparesInfoOpt.get().getQty();
-					BigDecimal qtyDiff = jobSparesInfo.getQty().subtract(originalQty);
-
-					// Adjust inventory based on qty difference
-					if (qtyDiff.compareTo(BigDecimal.ZERO) > 0) { // Increasing quantity
-						if (qtyDiff.compareTo(spares.getQty()) > 0) {
-							throw new Exception("Insufficient stock for spare " + spares.getDesc());
-						}
-						spares.setQty(spares.getQty().subtract(qtyDiff));
-					} else { // Reducing quantity
-						spares.setQty(spares.getQty().add(qtyDiff.abs()));
-					}
-					spares.setAmount(spares.getSellRate().multiply(spares.getQty()));
-					sparesService.saveFromJobSpares(spares);
-				} else {
-					exceptionMess += "Original spare not found for MODIFY action for spare ID "
-							+ jobSparesInfo.getSparesId();
-				}
-
-				// Handle DELETE action
-			} else if ("DELETE".equals(jobSparesInfo.getAction())) {
-				// Find the original spare in the job spares (to get the correct original
-				// quantity)
-				Optional<JobSparesInfo> origJobSparesInfoOpt = origJobSpares.getJobSparesInfo().stream()
-						.filter(info -> info.getSparesId().equals(jobSparesInfo.getSparesId())).findFirst();
-
-				if (origJobSparesInfoOpt.isPresent()) {
-					BigDecimal originalQty = origJobSparesInfoOpt.get().getQty();
-					// Add the original quantity back to inventory
-					spares.setQty(spares.getQty().add(originalQty));
-					spares.setAmount(spares.getSellRate().multiply(spares.getQty()));
-					sparesService.saveFromJobSpares(spares);
-				} else {
-					throw new Exception(
-							"Original spare not found for DELETE action for spare ID " + jobSparesInfo.getSparesId());
-				}
 			}
+			throw new Exception("Rolled back changes. Error: " + ex.getMessage());
 
-		}
-
-		// **Filter out the job spares marked for DELETE** before saving
-		List<JobSparesInfo> filteredJobSparesInfoList = jobSparesInfoList.stream()
-				.filter(jobSparesInfo -> !"DELETE".equals(jobSparesInfo.getAction())).collect(Collectors.toList());
-
-		// Update the job spares list and set action to null
-		filteredJobSparesInfoList.forEach(jobSparesInfo -> jobSparesInfo.setAction(null));
-		jobSpares.setJobSparesInfo(filteredJobSparesInfoList);
-
-		// Check if there were any exceptions
-		if (!exceptionMess.isEmpty()) {
-			throw new Exception(exceptionMess);
 		}
 
 		return jobSparesRepository.save(jobSpares);
