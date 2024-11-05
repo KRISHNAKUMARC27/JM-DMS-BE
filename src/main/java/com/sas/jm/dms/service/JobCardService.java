@@ -386,7 +386,7 @@ public class JobCardService {
 		Table table = new Table(UnitValue.createPercentArray(new float[] { 30, 35, 35 }));
 		table.setWidth(UnitValue.createPercentValue(100)); // Set the table width to 100%
 
-		Image image = new Image(ImageDataFactory.create("classpath:jm_logo.jpeg")); // Replace with the path to
+		Image image = new Image(ImageDataFactory.create("classpath:jm_logo_1.jpeg")); // Replace with the path to
 		// your
 		image.setMaxHeight(120);
 		image.setMaxWidth(150);// image
@@ -867,7 +867,7 @@ public class JobCardService {
 		table.addCell(new Cell().add(businessDetails).setVerticalAlignment(VerticalAlignment.MIDDLE)
 				.setHorizontalAlignment(HorizontalAlignment.LEFT));
 
-		Image image = new Image(ImageDataFactory.create("classpath:jm_logo.jpeg"));
+		Image image = new Image(ImageDataFactory.create("classpath:jm_logo_1.jpeg"));
 		image.setMaxHeight(120);
 		image.setMaxWidth(150);
 		table.addCell(
