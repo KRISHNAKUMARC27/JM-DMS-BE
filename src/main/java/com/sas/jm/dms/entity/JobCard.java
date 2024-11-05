@@ -23,6 +23,7 @@ public class JobCard implements Serializable {
 	private String id;
 	
 	private Integer jobId;
+	private Integer invoiceId;
 	private String jobStatus;
 	private LocalDateTime jobCreationDate;
 	private LocalDateTime jobCloseDate;

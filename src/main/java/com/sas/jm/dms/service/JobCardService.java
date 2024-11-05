@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -20,7 +21,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
@@ -228,6 +228,10 @@ public class JobCardService {
 					throw new Exception("Spares ID " + jobSparesInfo.getSparesId() + " not found in inventory.");
 				}
 
+				// Update the units field from misc2
+				if (spares.getMisc2() != null) {
+					jobSparesInfo.setUnits(spares.getMisc2());
+				}
 				// Handle ADD action
 				if ("ADD".equals(jobSparesInfo.getAction())) {
 					if (jobSparesInfo.getQty().compareTo(spares.getQty()) > 0) {
@@ -318,7 +322,7 @@ public class JobCardService {
 
 	public synchronized JobCard updateJobStatus(JobCard jobCard) throws Exception {
 		JobCard origJobCard = jobCardRepository.findById(jobCard.getId()).orElse(null);
-		if (origJobCard != null) {
+		if (origJobCard != null && !origJobCard.getJobStatus().equals("CLOSED")) {
 			if (jobCard.getJobStatus().equals("CLOSED")) {
 				List<JobCardInfo> jobInfoList = origJobCard.getJobInfo();
 				for (JobCardInfo jobInfo : jobInfoList) {
@@ -329,22 +333,43 @@ public class JobCardService {
 				}
 				LocalDateTime jobCloseDate = LocalDateTime.now();
 				origJobCard.setJobCloseDate(jobCloseDate);
+				origJobCard.setInvoiceId(getNextSequence("invoiceId"));
 				JobSpares origJobSpares = jobSparesRepository.findById(jobCard.getId()).orElse(null);
 				if (origJobSpares != null) {
 					origJobSpares.setJobCloseDate(jobCloseDate);
+					calculateTotals(origJobSpares);
 					jobSparesRepository.save(origJobSpares);
 				}
 			}
 		} else {
-			throw new Exception("Invalid jobCard " + jobCard.getJobId());
+			throw new Exception("Invalid jobCard or JobCard already Closed " + jobCard.getJobId());
 			// should never come here
 		}
 		origJobCard.setJobStatus(jobCard.getJobStatus());
+		
 		sendNotifications("JobCard - " + jobCard.getJobId() + " status " + jobCard.getJobStatus(), jobCard.toString());
 
 		return jobCardRepository.save(origJobCard);
 	}
 
+	private void calculateTotals(JobSpares origJobSpares) throws Exception {
+		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo().stream()
+	            .map(JobSparesInfo::getAmount)
+	            .filter(amount -> amount != null)  // Ensure no null values are encountered
+	            .reduce(BigDecimal.ZERO, BigDecimal::add);
+		
+		BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo().stream()
+	            .map(JobSparesInfo::getAmount)
+	            .filter(amount -> amount != null)  // Ensure no null values are encountered
+	            .reduce(BigDecimal.ZERO, BigDecimal::add);
+		
+		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue);
+		
+		if(!grandTotal.equals(origJobSpares.getGrandTotal())) {
+			throw new Exception("Total amount calculation is wrong in UI");
+		}
+	}
+	
 	public ResponseEntity<?> generateJobCardPdf(String id) throws Exception {
 
 		JobCard jobCard = jobCardRepository.findById(id).orElse(null);
@@ -353,6 +378,10 @@ public class JobCardService {
 		if (jobCard == null) {
 			throw new Exception("JobCard not found for id " + id);
 			// should never get here.
+		}
+		
+		if (jobSpares == null) {
+			throw new Exception("JobSpares not found for id " + id);
 		}
 
 		// Create table with varying columns for different rows
@@ -819,6 +848,10 @@ public class JobCardService {
 		if (jobCard == null) {
 			throw new Exception("JobCard not found for id " + id);
 		}
+		
+		if (jobSpares == null) {
+			throw new Exception("JobSpares not found for id " + id);
+		}
 
 		// Create PDF document and writer
 		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
@@ -857,23 +890,27 @@ public class JobCardService {
 		// Add Invoice Info Section
 		Table invoiceInfoTable = new Table(UnitValue.createPercentArray(new float[] { 25, 25, 25, 25 }));
 		invoiceInfoTable.setWidth(UnitValue.createPercentValue(100));
-		invoiceInfoTable.addCell(new Cell().add(new Paragraph("Invoice No: " + jobCard.getJobId()).setFontSize(10)
-				.setTextAlignment(TextAlignment.LEFT)));
-		invoiceInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(jobCard.getJobCreationDate()))
+		invoiceInfoTable.addCell(
+				new Cell().add(new Paragraph("Invoice No: " + jobCard.getInvoiceId()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+		invoiceInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(LocalDateTime.now()))
 				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. No: " + jobCard.getVehicleRegNo()).setFontSize(10)
 				.setTextAlignment(TextAlignment.LEFT)));
-		invoiceInfoTable.addCell(
-				new Cell().add(new Paragraph("GST No: " + "")).setFontSize(10).setTextAlignment(TextAlignment.LEFT));
+		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V KMs: " + jobCard.getKiloMeters())).setFontSize(10)
+				.setTextAlignment(TextAlignment.LEFT));
 		document.add(invoiceInfoTable);
 
 		// Add Job No and Customer's Order Section
 		Table orderInfoTable = new Table(UnitValue.createPercentArray(new float[] { 50, 50 }));
 		orderInfoTable.setWidth(UnitValue.createPercentValue(100));
-		orderInfoTable.addCell(new Cell().add(
-				new Paragraph("Customer’s Order No & Date: ").setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+		orderInfoTable.addCell(new Cell()
+				.add(new Paragraph("Customer’s Order No & Date: " + createDateString(jobCard.getJobCreationDate()))
+						.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 		orderInfoTable.addCell(new Cell().add(
 				new Paragraph("Job No: " + jobCard.getJobId()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//		orderInfoTable.addCell(
+//				new Cell().add(new Paragraph("GST No: " + "").setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+
 		document.add(orderInfoTable);
 
 		// Create table for Spares and Labour (with proper headers)
@@ -890,12 +927,14 @@ public class JobCardService {
 		int itemIndex = 1;
 		if (jobSpares != null && jobSpares.getJobSparesInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobSparesInfo()) {
+				String units = sparesInfo.getUnits() != null ? sparesInfo.getUnits() : "";
+
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
-				itemTable.addCell(new Cell()
-						.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
+				itemTable.addCell(new Cell().add(
+						new Paragraph(sparesInfo.getQty().toString() + units).setTextAlignment(TextAlignment.RIGHT)));
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
 				itemTable.addCell(new Cell()
@@ -907,7 +946,8 @@ public class JobCardService {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-				itemTable.addCell(new Cell().add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+				itemTable.addCell(new Cell()
+						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
 				itemTable.addCell(new Cell()
 						.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
 				itemTable.addCell(new Cell()

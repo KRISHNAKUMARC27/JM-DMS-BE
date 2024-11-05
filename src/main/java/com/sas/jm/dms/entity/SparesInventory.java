@@ -36,7 +36,7 @@ public class SparesInventory implements Serializable {
 
 	private String rack;
 	private String misc1;
-	private String misc2;
+	private String misc2; // Stores Units type
 	private String misc3;
 
 	@Version
