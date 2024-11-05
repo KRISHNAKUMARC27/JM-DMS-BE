@@ -346,30 +346,28 @@ public class JobCardService {
 			// should never come here
 		}
 		origJobCard.setJobStatus(jobCard.getJobStatus());
-		
+
 		sendNotifications("JobCard - " + jobCard.getJobId() + " status " + jobCard.getJobStatus(), jobCard.toString());
 
 		return jobCardRepository.save(origJobCard);
 	}
 
 	private void calculateTotals(JobSpares origJobSpares) throws Exception {
-		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo().stream()
-	            .map(JobSparesInfo::getAmount)
-	            .filter(amount -> amount != null)  // Ensure no null values are encountered
-	            .reduce(BigDecimal.ZERO, BigDecimal::add);
-		
-		BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo().stream()
-	            .map(JobSparesInfo::getAmount)
-	            .filter(amount -> amount != null)  // Ensure no null values are encountered
-	            .reduce(BigDecimal.ZERO, BigDecimal::add);
-		
+		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo().stream().map(JobSparesInfo::getAmount)
+				.filter(amount -> amount != null) // Ensure no null values are encountered
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo().stream().map(JobSparesInfo::getAmount)
+				.filter(amount -> amount != null) // Ensure no null values are encountered
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+
 		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue);
-		
-		if(!grandTotal.equals(origJobSpares.getGrandTotal())) {
+
+		if (!grandTotal.equals(origJobSpares.getGrandTotal())) {
 			throw new Exception("Total amount calculation is wrong in UI");
 		}
 	}
-	
+
 	public ResponseEntity<?> generateJobCardPdf(String id) throws Exception {
 
 		JobCard jobCard = jobCardRepository.findById(id).orElse(null);
@@ -379,7 +377,7 @@ public class JobCardService {
 			throw new Exception("JobCard not found for id " + id);
 			// should never get here.
 		}
-		
+
 		if (jobSpares == null) {
 			throw new Exception("JobSpares not found for id " + id);
 		}
@@ -665,8 +663,7 @@ public class JobCardService {
 
 	private String createDateString(LocalDateTime date) {
 		if (date != null) {
-			return date.getDayOfMonth() + "/" + date.getMonthValue() + "/" + date.getYear() + " - " + date.getHour()
-					+ ":" + date.getMinute();
+			return date.getDayOfMonth() + "/" + date.getMonthValue() + "/" + date.getYear();
 		}
 		return "";
 	}
@@ -848,7 +845,7 @@ public class JobCardService {
 		if (jobCard == null) {
 			throw new Exception("JobCard not found for id " + id);
 		}
-		
+
 		if (jobSpares == null) {
 			throw new Exception("JobSpares not found for id " + id);
 		}
@@ -883,20 +880,32 @@ public class JobCardService {
 
 		headerTable.addCell(new Cell()
 				.add(new Paragraph("INVOICE").setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER)));
-		headerTable.addCell(new Cell().add(
-				new Paragraph("M/s: " + jobCard.getOwnerName()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//		headerTable.addCell(new Cell().add(
+//				new Paragraph("M/s: " + jobCard.getOwnerName()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 		document.add(headerTable);
 
-		// Add Invoice Info Section
-		Table invoiceInfoTable = new Table(UnitValue.createPercentArray(new float[] { 25, 25, 25, 25 }));
-		invoiceInfoTable.setWidth(UnitValue.createPercentValue(100));
-		invoiceInfoTable.addCell(
-				new Cell().add(new Paragraph("Invoice No: " + jobCard.getInvoiceId()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
-		invoiceInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(LocalDateTime.now()))
+		Table customerInfoTable = new Table(UnitValue.createPercentArray(new float[] { 40, 30, 30 }));
+		customerInfoTable.setWidth(UnitValue.createPercentValue(100));
+		customerInfoTable.addCell(new Cell().add(new Paragraph("Customer Name: " + jobCard.getOwnerName())
 				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+		customerInfoTable.addCell(new Cell().add(new Paragraph("Ph No. " + jobCard.getOwnerPhoneNumber())
+				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+
+		customerInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(LocalDateTime.now()))
+				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+
+		document.add(customerInfoTable);
+
+		// Add Invoice Info Section
+		Table invoiceInfoTable = new Table(UnitValue.createPercentArray(new float[] { 18, 32, 25, 25 }));
+		invoiceInfoTable.setWidth(UnitValue.createPercentValue(100));
+		invoiceInfoTable.addCell(new Cell().add(new Paragraph("Invoice No: " + jobCard.getInvoiceId()).setFontSize(10)
+				.setTextAlignment(TextAlignment.LEFT)));
+		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. Name: " + jobCard.getVehicleName()).setFontSize(10)
+				.setTextAlignment(TextAlignment.LEFT)));
 		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. No: " + jobCard.getVehicleRegNo()).setFontSize(10)
 				.setTextAlignment(TextAlignment.LEFT)));
-		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V KMs: " + jobCard.getKiloMeters())).setFontSize(10)
+		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. KMs: " + jobCard.getKiloMeters())).setFontSize(10)
 				.setTextAlignment(TextAlignment.LEFT));
 		document.add(invoiceInfoTable);
 
