@@ -26,11 +26,13 @@ import com.itextpdf.io.image.ImageDataFactory;
 import com.itextpdf.kernel.pdf.PdfDocument;
 import com.itextpdf.kernel.pdf.PdfWriter;
 import com.itextpdf.layout.Document;
+import com.itextpdf.layout.element.AreaBreak;
 import com.itextpdf.layout.element.Cell;
 import com.itextpdf.layout.element.Image;
 import com.itextpdf.layout.element.Paragraph;
 import com.itextpdf.layout.element.Table;
 import com.itextpdf.layout.element.Text;
+import com.itextpdf.layout.properties.AreaBreakType;
 import com.itextpdf.layout.properties.HorizontalAlignment;
 import com.itextpdf.layout.properties.TextAlignment;
 import com.itextpdf.layout.properties.UnitValue;
@@ -61,6 +63,9 @@ public class JobCardService {
 	private final MongoTemplate mongoTemplate;
 
 	private String[] emailRecepients = { "krishnakumarc27@gmail.com" };
+
+	private Integer rowsPerPage = 20;
+	float rowHeight = 18f;
 
 	public int getNextSequence(String sequenceName) {
 		// Find the counter document and increment its sequence_value atomically
@@ -316,8 +321,8 @@ public class JobCardService {
 	}
 
 	public JobSpares getJobSpares(String id) {
-		return jobSparesRepository.findById(id)
-				.orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>()).jobLaborInfo(new ArrayList<>()).build());
+		return jobSparesRepository.findById(id).orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>())
+				.jobConsumablesInfo(new ArrayList<>()).jobLaborInfo(new ArrayList<>()).build());
 	}
 
 	public synchronized JobCard updateJobStatus(JobCard jobCard) throws Exception {
@@ -361,7 +366,11 @@ public class JobCardService {
 				.filter(amount -> amount != null) // Ensure no null values are encountered
 				.reduce(BigDecimal.ZERO, BigDecimal::add);
 
-		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue);
+		BigDecimal totalConsumablesValue = origJobSpares.getJobConsumablesInfo().stream().map(JobSparesInfo::getAmount)
+				.filter(amount -> amount != null) // Ensure no null values are encountered
+				.reduce(BigDecimal.ZERO, BigDecimal::add);
+
+		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue);
 
 		if (!grandTotal.equals(origJobSpares.getGrandTotal())) {
 			throw new Exception("Total amount calculation is wrong in UI");
@@ -526,6 +535,28 @@ public class JobCardService {
 							.setTextAlignment(TextAlignment.RIGHT));
 				}
 			}
+			if (jobSpares.getJobConsumablesInfo() != null) {
+				Cell labourCell = new Cell().add(new Paragraph("Labour")).setTextAlignment(TextAlignment.CENTER)
+						.setBold();
+//				Cell qtyLabourCell = new Cell().add(new Paragraph("Qty.")).setTextAlignment(TextAlignment.CENTER)
+//						.setBold();
+//				Cell rateLabourCell = new Cell().add(new Paragraph("Rate")).setTextAlignment(TextAlignment.CENTER)
+//						.setBold();
+				Cell amountLabourCell = new Cell().add(new Paragraph("Amount")).setTextAlignment(TextAlignment.CENTER)
+						.setBold();
+				table3.addCell(labourCell);
+//				table3.addCell(qtyLabourCell);
+//				table3.addCell(rateLabourCell);
+				table3.addCell(amountLabourCell);
+
+				for (JobSparesInfo jobLaborInfo : jobSpares.getJobLaborInfo()) {
+					table3.addCell(stringNullCheck(jobLaborInfo.getSparesAndLabour()));
+					table3.addCell(new Cell().add(new Paragraph("")).setTextAlignment(TextAlignment.RIGHT));
+					table3.addCell(new Cell().add(new Paragraph("")).setTextAlignment(TextAlignment.RIGHT));
+					table3.addCell(new Cell().add(new Paragraph(jobLaborInfo.getAmount().toString()))
+							.setTextAlignment(TextAlignment.RIGHT));
+				}
+			}
 			if (jobSpares.getJobLaborInfo() != null) {
 				Cell labourCell = new Cell().add(new Paragraph("Labour")).setTextAlignment(TextAlignment.CENTER)
 						.setBold();
@@ -554,6 +585,10 @@ public class JobCardService {
 			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Spares Value")).setTextAlignment(TextAlignment.RIGHT)
 					.setBold());
 			table3.addCell(new Cell(1, 2).add(new Paragraph(stringNullCheck(jobSpares.getTotalSparesValue()))
+					.setTextAlignment(TextAlignment.RIGHT)));
+			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Consumables Value"))
+					.setTextAlignment(TextAlignment.RIGHT).setBold());
+			table3.addCell(new Cell(1, 2).add(new Paragraph(stringNullCheck(jobSpares.getTotalConsumablesValue()))
 					.setTextAlignment(TextAlignment.RIGHT)));
 
 			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Labour Value")).setTextAlignment(TextAlignment.RIGHT)
@@ -686,157 +721,211 @@ public class JobCardService {
 //
 //		if (jobCard == null) {
 //			throw new Exception("JobCard not found for id " + id);
-//			// should never get here.
 //		}
 //
-//		// Create table with varying columns for different rows
-//		Table table = new Table(UnitValue.createPercentArray(new float[] { 30, 35, 35 }));
-//		table.setWidth(UnitValue.createPercentValue(100)); // Set the table width to 100%
-//
-//		Image image = new Image(ImageDataFactory.create("classpath:jm_logo.jpeg")); // Replace with the path to
-//		// your
-//		image.setMaxHeight(120);
-//		image.setMaxWidth(150);// image
-//		table.addCell(
-//				new Paragraph("").add(image).setVerticalAlignment(VerticalAlignment.MIDDLE).setKeepTogether(true));
-//
-//		table.addCell(createCellWithFixedSpace("Job Card No: ", stringNullCheck(jobCard.getJobId()), "\n", "Owner: ",
-//				stringNullCheck(jobCard.getOwnerName()), "\n", "Contact No: ",
-//				stringNullCheck(jobCard.getOwnerPhoneNumber())).setVerticalAlignment(VerticalAlignment.MIDDLE)
-//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
-//
-//		table.addCell(createCellWithFixedSpace("Date: ", createDateString(jobCard.getJobCreationDate()), "\n",
-//				"Email: ", stringNullCheck(jobCard.getOwnerEmailId()), "\n", "Driver: ",
-//				stringNullCheck(jobCard.getDriver())).setFontSize(11).setVerticalAlignment(VerticalAlignment.MIDDLE)
-//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
-//
-//		Table singleColumnTable = new Table(UnitValue.createPercentArray(new float[] { 100 }));
-//		singleColumnTable.setWidth(UnitValue.createPercentValue(100));
-//		singleColumnTable.addCell(createCellWithFixedSpace("Address: ", stringNullCheck(jobCard.getOwnerAddress()))
-//				.setFontSize(11).setVerticalAlignment(VerticalAlignment.MIDDLE)
-//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
-//
-//		Table doubleColumnTable = new Table(UnitValue.createPercentArray(new float[] { 50, 50 }));
-//		doubleColumnTable.setWidth(UnitValue.createPercentValue(100));
-//		Cell ColumnCell = new Cell()
-//				.add(createCellWithFixedSpace("Vehicle Reg. No: ", stringNullCheck(jobCard.getVehicleRegNo()), "\n",
-//						"Vehicle Model: ", stringNullCheck(jobCard.getVehicleModel()), "\n", "Technician Name: ",
-//						stringNullCheck(jobCard.getTechnicianName())));
-//
-//		doubleColumnTable.addCell(ColumnCell);
-//
-//		Cell singleColumnCell1 = new Cell()
-//				.add(createCellWithFixedSpace("Type of Vehicle: " + stringNullCheck(jobCard.getVehicleName()), "\n",
-//						"K.M: " + stringNullCheck(jobCard.getKiloMeters()), "\n",
-//						"Vehicle Out Date: " + createDateString(jobCard.getVehicleOutDate())));
-//		doubleColumnTable.addCell(singleColumnCell1);
-//
-//		setMinWidth(table, 0, 1, 100f);
-//
-//		Table table3 = null;
-//		if (jobSpares != null) {
-//			table3 = new Table(UnitValue.createPercentArray(new float[] { 50, 10, 20, 30 }));
-//			table3.setWidth(UnitValue.createPercentValue(100));
-//			if (jobSpares.getJobSparesInfo() != null) {
-//
-//				Cell sparesCell = new Cell().add(new Paragraph("Spares")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//
-//				Cell qtySparesCell = new Cell().add(new Paragraph("Qty.")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//
-//				Cell rateSparesCell = new Cell().add(new Paragraph("Rate")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//
-//				Cell amountSparesCell = new Cell().add(new Paragraph("Amount")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//
-//				table3.addCell(sparesCell);
-//				table3.addCell(qtySparesCell);
-//				table3.addCell(rateSparesCell);
-//				table3.addCell(amountSparesCell);
-//				for (JobSparesInfo jobSparesInfo : jobSpares.getJobSparesInfo()) {
-//					table3.addCell(removeJobSparesBracketFieldsAndNullCheck(jobSparesInfo.getSparesAndLabour()));
-//					table3.addCell(new Cell().add(new Paragraph(jobSparesInfo.getQty().toString()))
-//							.setTextAlignment(TextAlignment.RIGHT));
-//					table3.addCell(new Cell().add(new Paragraph(jobSparesInfo.getRate().toString()))
-//							.setTextAlignment(TextAlignment.RIGHT));
-//					table3.addCell(new Cell().add(new Paragraph(jobSparesInfo.getAmount().toString()))
-//							.setTextAlignment(TextAlignment.RIGHT));
-//				}
-//			}
-//			if (jobSpares.getJobLaborInfo() != null) {
-//				Cell labourCell = new Cell().add(new Paragraph("Labour")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//				Cell qtyLabourCell = new Cell().add(new Paragraph("Qty.")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//				Cell rateLabourCell = new Cell().add(new Paragraph("Rate")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//				Cell amountLabourCell = new Cell().add(new Paragraph("Amount")).setTextAlignment(TextAlignment.CENTER)
-//						.setBold();
-//				table3.addCell(labourCell);
-//				table3.addCell(qtyLabourCell);
-//				table3.addCell(rateLabourCell);
-//				table3.addCell(amountLabourCell);
-//
-//				for (JobSparesInfo jobLaborInfo : jobSpares.getJobLaborInfo()) {
-//					table3.addCell(stringNullCheck(jobLaborInfo.getSparesAndLabour()));
-//					table3.addCell(new Cell().add(new Paragraph(jobLaborInfo.getQty().toString()))
-//							.setTextAlignment(TextAlignment.RIGHT));
-//					table3.addCell(new Cell().add(new Paragraph(jobLaborInfo.getRate().toString()))
-//							.setTextAlignment(TextAlignment.RIGHT));
-//					table3.addCell(new Cell().add(new Paragraph(jobLaborInfo.getAmount().toString()))
-//							.setTextAlignment(TextAlignment.RIGHT));
-//				}
-//			}
-//
-//			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Spares Value")).setTextAlignment(TextAlignment.RIGHT)
-//					.setBold());
-//			table3.addCell(new Cell(1, 2).add(new Paragraph(stringNullCheck(jobSpares.getTotalSparesValue()))
-//					.setTextAlignment(TextAlignment.RIGHT)));
-//
-//			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Labour Value")).setTextAlignment(TextAlignment.RIGHT)
-//					.setBold());
-//			table3.addCell(new Cell(1, 2).add(new Paragraph(stringNullCheck(jobSpares.getTotalLabourValue()))
-//					.setTextAlignment(TextAlignment.RIGHT)));
-//
-//			table3.addCell(
-//					new Cell(1, 2).add(new Paragraph("Grand Total")).setTextAlignment(TextAlignment.RIGHT).setBold());
-//			table3.addCell(new Cell(1, 2).add(
-//					new Paragraph(stringNullCheck(jobSpares.getGrandTotal())).setTextAlignment(TextAlignment.RIGHT)));
+//		if (jobSpares == null) {
+//			throw new Exception("JobSpares not found for id " + id);
 //		}
 //
-//		Table singleColumnTableForNote = new Table(UnitValue.createPercentArray(new float[] { 100 }));
-//		singleColumnTableForNote.setWidth(UnitValue.createPercentValue(100));
-//		singleColumnTableForNote.addCell(createCellWithFixedSpace("Note: Goods once sold cannot be taken back. Warranty of the Components are applicable only subjected to manufacturing defects. Not for improper (or) wear condition of the components.")
-//				.setFontSize(11).setVerticalAlignment(VerticalAlignment.MIDDLE)
-//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
-//		
+//		// Create PDF document and writer
 //		ByteArrayOutputStream outputStream = new ByteArrayOutputStream();
 //		PdfWriter pdfWriter = new PdfWriter(outputStream);
 //		PdfDocument pdfDocument = new PdfDocument(pdfWriter);
 //		Document document = new Document(pdfDocument);
 //
+//		Table table = new Table(UnitValue.createPercentArray(new float[] { 70, 30 }));
+//		table.setWidth(UnitValue.createPercentValue(100));
+//
+//		Paragraph businessDetails = new Paragraph().add(new Text("JAI MARUTHI AUTO CARE\n").setBold().setFontSize(20))
+//				.add(new Text("#188-B, Mettukadai, Kathirampatti, Erode - 638 107\n").setFontSize(10))
+//				.add(new Text("E-mail: jmacerode@gmail.com | Cell: 63801 68789, 88256 06390").setFontSize(10));
+//
+//		// Add the business details Paragraph to the first cell of the table
+//		table.addCell(new Cell().add(businessDetails).setVerticalAlignment(VerticalAlignment.MIDDLE)
+//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
+//
+//		Image image = new Image(ImageDataFactory.create("classpath:jm_logo_1.jpeg"));
+//		image.setMaxHeight(120);
+//		image.setMaxWidth(150);
+//		table.addCell(
+//				new Paragraph("").add(image).setVerticalAlignment(VerticalAlignment.MIDDLE).setKeepTogether(true));
 //		document.add(table);
-//		document.add(singleColumnTable);
-//		document.add(doubleColumnTable);
-////		document.add(table2);
-//		if (table3 != null) {
-//			document.add(table3);
+//
+//		// Header Section - Add business info
+//		Table headerTable = new Table(UnitValue.createPercentArray(new float[] { 100 }));
+//		headerTable.setWidth(UnitValue.createPercentValue(100));
+//
+//		headerTable.addCell(new Cell()
+//				.add(new Paragraph("INVOICE").setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER)));
+//		document.add(headerTable);
+//
+//		Table customerInfoTable = new Table(UnitValue.createPercentArray(new float[] { 40, 30, 30 }));
+//		customerInfoTable.setWidth(UnitValue.createPercentValue(100));
+//		customerInfoTable.addCell(new Cell().add(new Paragraph("Customer Name: " + jobCard.getOwnerName())
+//				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//		customerInfoTable.addCell(new Cell().add(new Paragraph("Ph No. " + jobCard.getOwnerPhoneNumber())
+//				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//
+//		customerInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(LocalDateTime.now()))
+//				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//
+//		document.add(customerInfoTable);
+//
+//		// Add Invoice Info Section
+//		Table invoiceInfoTable = new Table(UnitValue.createPercentArray(new float[] { 18, 32, 25, 25 }));
+//		invoiceInfoTable.setWidth(UnitValue.createPercentValue(100));
+//		invoiceInfoTable.addCell(new Cell().add(new Paragraph("Invoice No: " + jobCard.getInvoiceId()).setFontSize(10)
+//				.setTextAlignment(TextAlignment.LEFT)));
+//		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. Name: " + jobCard.getVehicleName()).setFontSize(10)
+//				.setTextAlignment(TextAlignment.LEFT)));
+//		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. No: " + jobCard.getVehicleRegNo()).setFontSize(10)
+//				.setTextAlignment(TextAlignment.LEFT)));
+//		invoiceInfoTable.addCell(new Cell().add(new Paragraph("V. KMs: " + jobCard.getKiloMeters())).setFontSize(10)
+//				.setTextAlignment(TextAlignment.LEFT));
+//		document.add(invoiceInfoTable);
+//
+//		// Add Job No and Customer's Order Section
+//		Table orderInfoTable = new Table(UnitValue.createPercentArray(new float[] { 50, 50 }));
+//		orderInfoTable.setWidth(UnitValue.createPercentValue(100));
+//		orderInfoTable.addCell(new Cell()
+//				.add(new Paragraph("Customer’s Order No & Date: " + createDateString(jobCard.getJobCreationDate()))
+//						.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//		orderInfoTable.addCell(new Cell().add(
+//				new Paragraph("Job No: " + jobCard.getJobId()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+//
+//		document.add(orderInfoTable);
+//
+//		// Create table for Spares and Labour (with proper headers)
+//		Table itemTable = new Table(UnitValue.createPercentArray(new float[] { 10, 40, 10, 20, 20 }));
+//		itemTable.setWidth(UnitValue.createPercentValue(100));
+//		itemTable.addCell(new Cell().add(new Paragraph("S.No").setTextAlignment(TextAlignment.CENTER).setBold()));
+//		itemTable
+//				.addCell(new Cell().add(new Paragraph("Particulars").setTextAlignment(TextAlignment.CENTER).setBold()));
+//		itemTable.addCell(new Cell().add(new Paragraph("Qty").setTextAlignment(TextAlignment.CENTER).setBold()));
+//		itemTable.addCell(new Cell().add(new Paragraph("Rate/Unit").setTextAlignment(TextAlignment.CENTER).setBold()));
+//		itemTable.addCell(new Cell().add(new Paragraph("Amount").setTextAlignment(TextAlignment.CENTER).setBold()));
+//
+//		// Add Spares and Labor details
+//		int itemIndex = 1;
+//		if (jobSpares != null && jobSpares.getJobSparesInfo() != null) {
+//			for (JobSparesInfo sparesInfo : jobSpares.getJobSparesInfo()) {
+//				String units = sparesInfo.getUnits() != null ? sparesInfo.getUnits() : "";
+//
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+//				itemTable.addCell(new Cell().add(
+//						new Paragraph(sparesInfo.getQty().toString() + units).setTextAlignment(TextAlignment.RIGHT)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+//			}
 //		}
-//		document.add(singleColumnTableForNote);
+//
+//		if (jobSpares != null && jobSpares.getJobConsumablesInfo() != null) {
+//			for (JobSparesInfo sparesInfo : jobSpares.getJobConsumablesInfo()) {
+//				String units = sparesInfo.getUnits() != null ? sparesInfo.getUnits() : "";
+//
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+//				itemTable.addCell(new Cell().add(
+//						new Paragraph("").setTextAlignment(TextAlignment.RIGHT)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph("").setTextAlignment(TextAlignment.RIGHT)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+//			}
+//		}
+//		
+//		if (jobSpares != null && jobSpares.getJobLaborInfo() != null) {
+//			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
+//				itemTable.addCell(new Cell()
+//						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+//			}
+//		}
+//
+//		document.add(itemTable);
+//
+//		// Add Total section for Spares, Labour, and Grand Total
+//		Table totalTable = new Table(UnitValue.createPercentArray(new float[] { 80, 20 }));
+//		totalTable.setWidth(UnitValue.createPercentValue(100));
+//		totalTable
+//				.addCell(new Cell().add(new Paragraph("Grand Total").setBold().setTextAlignment(TextAlignment.RIGHT)));
+//		totalTable.addCell(new Cell()
+//				.add(new Paragraph(stringNullCheck(jobSpares.getGrandTotal())).setTextAlignment(TextAlignment.RIGHT)));
+//		document.add(totalTable);
+//
+//		// Add Note Section
+//		Table noteTable = new Table(UnitValue.createPercentArray(new float[] { 100 }));
+//		noteTable.setWidth(UnitValue.createPercentValue(100));
+//		noteTable.addCell(new Cell().add(new Paragraph(
+//				"Note: Goods once sold cannot be taken back. Warranty of the Components are applicable only subjected to manufacturing defects. Not for improper (or) wear condition of the components.")
+//				.setFontSize(8).setTextAlignment(TextAlignment.LEFT)));
+//		document.add(noteTable);
+//
+//		Table table1 = new Table(UnitValue.createPercentArray(new float[] { 65, 35 }));
+//		table1.setWidth(UnitValue.createPercentValue(100));
+//
+//		Paragraph businessDetails1 = new Paragraph().add(new Text(
+//				"Received the above goods in good condition and we have agreed to the price and other terms shows above.\n")
+//				.setFontSize(8)) // Larger and bold font for the name
+//				.add(new Text("\n").setFontSize(10)) // Smaller font for address
+//				.add(new Text("Signature").setFontSize(10).setHorizontalAlignment(HorizontalAlignment.CENTER));
+//
+//		table1.addCell(new Cell().add(businessDetails1).setVerticalAlignment(VerticalAlignment.MIDDLE)
+//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
+//
+//		Paragraph businessDetails2 = new Paragraph()
+//				.add(new Text("For JAI MARUTHI AUTO CARE\n").setBold().setFontSize(10)) // Larger and bold font for the
+//																						// name
+//				.add(new Text("\n").setFontSize(10)) // Smaller font for address
+//				.add(new Text("Authorized Signature").setFontSize(10)
+//						.setHorizontalAlignment(HorizontalAlignment.CENTER)); // Smaller font for email and phone
+//
+//		table1.addCell(new Cell().add(businessDetails2).setVerticalAlignment(VerticalAlignment.MIDDLE)
+//				.setHorizontalAlignment(HorizontalAlignment.LEFT));
+//
+//		document.add(table1);
+//
+//		// Close Document
 //		document.close();
 //		pdfDocument.close();
 //		pdfWriter.close();
 //		outputStream.close();
 //
 //		ByteArrayResource resource = new ByteArrayResource(outputStream.toByteArray());
-//		String filename = jobCard.getJobId() + "_" + jobCard.getVehicleRegNo() + ".pdf";
+//		String filename = "Bill_" + jobCard.getJobId() + "_" + jobCard.getVehicleRegNo() + ".pdf";
 //		HttpHeaders headers = new HttpHeaders();
 //		headers.add(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=" + filename);
 //		return ResponseEntity.ok().headers(headers).contentLength(resource.contentLength())
 //				.contentType(MediaType.APPLICATION_PDF).body(resource);
 //	}
+
+	void addEmptyRow(Table table) {
+
+		table.addCell(new Cell().setMinHeight(rowHeight)
+				.add(new Paragraph("").setFontSize(10).setTextAlignment(TextAlignment.CENTER)));
+		table.addCell(new Cell().setMinHeight(rowHeight)
+				.add(new Paragraph("").setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
+		table.addCell(new Cell().setMinHeight(rowHeight)
+				.add(new Paragraph("").setFontSize(10).setTextAlignment(TextAlignment.RIGHT)));
+		table.addCell(new Cell().setMinHeight(rowHeight)
+				.add(new Paragraph("").setFontSize(10).setTextAlignment(TextAlignment.RIGHT)));
+		table.addCell(new Cell().setMinHeight(rowHeight)
+				.add(new Paragraph("").setFontSize(10).setTextAlignment(TextAlignment.RIGHT)));
+	}
 
 	public ResponseEntity<?> generateBillPdf(String id) throws Exception {
 		JobCard jobCard = jobCardRepository.findById(id).orElse(null);
@@ -880,8 +969,6 @@ public class JobCardService {
 
 		headerTable.addCell(new Cell()
 				.add(new Paragraph("INVOICE").setBold().setFontSize(14).setTextAlignment(TextAlignment.CENTER)));
-//		headerTable.addCell(new Cell().add(
-//				new Paragraph("M/s: " + jobCard.getOwnerName()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 		document.add(headerTable);
 
 		Table customerInfoTable = new Table(UnitValue.createPercentArray(new float[] { 40, 30, 30 }));
@@ -917,13 +1004,11 @@ public class JobCardService {
 						.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 		orderInfoTable.addCell(new Cell().add(
 				new Paragraph("Job No: " + jobCard.getJobId()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
-//		orderInfoTable.addCell(
-//				new Cell().add(new Paragraph("GST No: " + "").setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 
 		document.add(orderInfoTable);
 
 		// Create table for Spares and Labour (with proper headers)
-		Table itemTable = new Table(UnitValue.createPercentArray(new float[] { 10, 40, 10, 20, 20 }));
+		Table itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
 		itemTable.setWidth(UnitValue.createPercentValue(100));
 		itemTable.addCell(new Cell().add(new Paragraph("S.No").setTextAlignment(TextAlignment.CENTER).setBold()));
 		itemTable
@@ -934,42 +1019,119 @@ public class JobCardService {
 
 		// Add Spares and Labor details
 		int itemIndex = 1;
+		int rowCount = 0;
+		int deltaCount = rowsPerPage;
+		int page = 1;
+
+		int totalCount = 0;
+		if (jobSpares != null) {
+			if (jobSpares.getJobSparesInfo() != null) {
+				totalCount = totalCount + jobSpares.getJobSparesInfo().size();
+			}
+			if (jobSpares.getJobConsumablesInfo() != null) {
+				totalCount = totalCount + jobSpares.getJobConsumablesInfo().size();
+			}
+			if (jobSpares.getJobLaborInfo() != null) {
+				totalCount = totalCount + jobSpares.getJobLaborInfo().size();
+			}
+		}
+		if (totalCount > 25) {
+			deltaCount = deltaCount + 4;
+		}
+
 		if (jobSpares != null && jobSpares.getJobSparesInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobSparesInfo()) {
 				String units = sparesInfo.getUnits() != null ? sparesInfo.getUnits() : "";
 
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
-				itemTable.addCell(new Cell().add(
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
 						new Paragraph(sparesInfo.getQty().toString() + units).setTextAlignment(TextAlignment.RIGHT)));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+
+				rowCount++;
+				if (rowCount > deltaCount) {
+					document.add(itemTable);
+					document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
+					itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
+					itemTable.setWidth(UnitValue.createPercentValue(100));
+					rowCount = 0;
+					page++;
+					if (page > 1)
+						deltaCount = 28;
+				}
+			}
+		}
+
+		if (jobSpares != null && jobSpares.getJobConsumablesInfo() != null) {
+			for (JobSparesInfo sparesInfo : jobSpares.getJobConsumablesInfo()) {
+				String units = sparesInfo.getUnits() != null ? sparesInfo.getUnits() : "";
+
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph("").setTextAlignment(TextAlignment.RIGHT)));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph("").setTextAlignment(TextAlignment.RIGHT)));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+				rowCount++;
+				if (rowCount > deltaCount) {
+					document.add(itemTable);
+					document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
+					itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15  }));
+					itemTable.setWidth(UnitValue.createPercentValue(100));
+					rowCount = 0;
+					page++;
+					if (page > 1)
+						deltaCount = 28;
+				}
 			}
 		}
 
 		if (jobSpares != null && jobSpares.getJobLaborInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
-				itemTable.addCell(new Cell()
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+
+				rowCount++;
+				if (rowCount > deltaCount) {
+					document.add(itemTable);
+					document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
+					itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
+					itemTable.setWidth(UnitValue.createPercentValue(100));
+					rowCount = 0;
+					page++;
+					if (page > 1)
+						deltaCount = 28;
+				}
 			}
+		}
+
+		while (rowCount < deltaCount) {
+			addEmptyRow(itemTable);
+			rowCount++;
 		}
 
 		document.add(itemTable);
 
 		// Add Total section for Spares, Labour, and Grand Total
-		Table totalTable = new Table(UnitValue.createPercentArray(new float[] { 80, 20 }));
+		Table totalTable = new Table(UnitValue.createPercentArray(new float[] { 85, 15 }));
 		totalTable.setWidth(UnitValue.createPercentValue(100));
 		totalTable
 				.addCell(new Cell().add(new Paragraph("Grand Total").setBold().setTextAlignment(TextAlignment.RIGHT)));
