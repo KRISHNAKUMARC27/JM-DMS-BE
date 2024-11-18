@@ -4,10 +4,10 @@ import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -320,10 +320,36 @@ public class JobCardService {
 		return jobSparesRepository.save(jobSpares);
 	}
 
+//	public JobSpares getJobSpares(String id) {
+//		return jobSparesRepository.findById(id).orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>())
+//				.jobConsumablesInfo(new ArrayList<>()).jobLaborInfo(new ArrayList<>()).build());
+//	}
+	
 	public JobSpares getJobSpares(String id) {
-		return jobSparesRepository.findById(id).orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>())
-				.jobConsumablesInfo(new ArrayList<>()).jobLaborInfo(new ArrayList<>()).build());
+	    JobSpares jobSpares = jobSparesRepository.findById(id)
+	            .orElse(JobSpares.builder()
+	                    .jobSparesInfo(new ArrayList<>())
+	                    .jobConsumablesInfo(new ArrayList<>())
+	                    .jobLaborInfo(new ArrayList<>())
+	                    .build());
+
+	    // Ensure non-null lists
+	    if (jobSpares.getJobSparesInfo() == null) {
+	    	jobSpares.setTotalSparesValue(BigDecimal.ZERO);
+	        jobSpares.setJobSparesInfo(new ArrayList<>());
+	    }
+	    if (jobSpares.getJobConsumablesInfo() == null) {
+	    	jobSpares.setTotalConsumablesValue(BigDecimal.ZERO);
+	        jobSpares.setJobConsumablesInfo(new ArrayList<>());
+	    }
+	    if (jobSpares.getJobLaborInfo() == null) {
+	    	jobSpares.setTotalLabourValue(BigDecimal.ZERO);
+	        jobSpares.setJobLaborInfo(new ArrayList<>());
+	    }
+
+	    return jobSpares;
 	}
+
 
 	public synchronized JobCard updateJobStatus(JobCard jobCard) throws Exception {
 		JobCard origJobCard = jobCardRepository.findById(jobCard.getId()).orElse(null);
@@ -357,24 +383,58 @@ public class JobCardService {
 		return jobCardRepository.save(origJobCard);
 	}
 
+//	private void calculateTotals(JobSpares origJobSpares) throws Exception {
+//		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo().stream().map(JobSparesInfo::getAmount)
+//				.filter(amount -> amount != null) // Ensure no null values are encountered
+//				.reduce(BigDecimal.ZERO, BigDecimal::add);
+//
+//		BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo().stream().map(JobSparesInfo::getAmount)
+//				.filter(amount -> amount != null) // Ensure no null values are encountered
+//				.reduce(BigDecimal.ZERO, BigDecimal::add);
+//
+//		BigDecimal totalConsumablesValue = origJobSpares.getJobConsumablesInfo().stream().map(JobSparesInfo::getAmount)
+//				.filter(amount -> amount != null) // Ensure no null values are encountered
+//				.reduce(BigDecimal.ZERO, BigDecimal::add);
+//
+//		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue);
+//
+//		if (!grandTotal.equals(origJobSpares.getGrandTotal())) {
+//			throw new Exception("Total amount calculation is wrong in UI");
+//		}
+//	}
+	
 	private void calculateTotals(JobSpares origJobSpares) throws Exception {
-		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo().stream().map(JobSparesInfo::getAmount)
-				.filter(amount -> amount != null) // Ensure no null values are encountered
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+	    // Calculate total spares value
+	    BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo() != null
+	            ? origJobSpares.getJobSparesInfo().stream()
+	                .map(JobSparesInfo::getAmount)
+	                .filter(Objects::nonNull)
+	                .reduce(BigDecimal.ZERO, BigDecimal::add)
+	            : BigDecimal.ZERO;
 
-		BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo().stream().map(JobSparesInfo::getAmount)
-				.filter(amount -> amount != null) // Ensure no null values are encountered
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+	    // Calculate total labor value
+	    BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo() != null
+	            ? origJobSpares.getJobLaborInfo().stream()
+	                .map(JobSparesInfo::getAmount)
+	                .filter(Objects::nonNull)
+	                .reduce(BigDecimal.ZERO, BigDecimal::add)
+	            : BigDecimal.ZERO;
 
-		BigDecimal totalConsumablesValue = origJobSpares.getJobConsumablesInfo().stream().map(JobSparesInfo::getAmount)
-				.filter(amount -> amount != null) // Ensure no null values are encountered
-				.reduce(BigDecimal.ZERO, BigDecimal::add);
+	    // Calculate total consumables value only if not null
+	    BigDecimal totalConsumablesValue = origJobSpares.getJobConsumablesInfo() != null
+	            ? origJobSpares.getJobConsumablesInfo().stream()
+	                .map(JobSparesInfo::getAmount)
+	                .filter(Objects::nonNull)
+	                .reduce(BigDecimal.ZERO, BigDecimal::add)
+	            : BigDecimal.ZERO;
 
-		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue);
+	    // Calculate the grand total
+	    BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue);
 
-		if (!grandTotal.equals(origJobSpares.getGrandTotal())) {
-			throw new Exception("Total amount calculation is wrong in UI");
-		}
+	    // Validate the grand total
+	    if (origJobSpares.getGrandTotal() != null && !grandTotal.equals(origJobSpares.getGrandTotal())) {
+	        throw new Exception("Total amount calculation is wrong in UI");
+	    }
 	}
 
 	public ResponseEntity<?> generateJobCardPdf(String id) throws Exception {
