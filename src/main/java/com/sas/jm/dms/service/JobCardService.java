@@ -364,7 +364,8 @@ public class JobCardService {
 				}
 				LocalDateTime jobCloseDate = LocalDateTime.now();
 				origJobCard.setJobCloseDate(jobCloseDate);
-				origJobCard.setInvoiceId(getNextSequence("invoiceId"));
+				if(origJobCard.getInvoiceId() == null)
+				    origJobCard.setInvoiceId(getNextSequence("invoiceId"));
 				JobSpares origJobSpares = jobSparesRepository.findById(jobCard.getId()).orElse(null);
 				if (origJobSpares != null) {
 					origJobSpares.setJobCloseDate(jobCloseDate);
