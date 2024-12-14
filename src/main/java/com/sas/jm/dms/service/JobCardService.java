@@ -2,7 +2,9 @@ package com.sas.jm.dms.service;
 
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -83,12 +85,46 @@ public class JobCardService {
 		return counter.getSequenceValue();
 	}
 
+	public int getNextJobCardIdSequenceAsInteger(String sequenceName) {
+
+		int currentYearMonth = Integer.parseInt(LocalDate.now().format(DateTimeFormatter.ofPattern("yyyyMM")));
+
+		Query query = new Query(Criteria.where("_id").is(sequenceName));
+		JobCardCounters counter = mongoTemplate.findOne(query, JobCardCounters.class);
+
+		if (counter == null) {
+			counter = new JobCardCounters();
+			counter.setId(sequenceName);
+			counter.setYearMonth(currentYearMonth);
+			counter.setSequenceValue(1);
+			mongoTemplate.save(counter);
+		} else if (counter.getYearMonth() != currentYearMonth) {
+			counter.setYearMonth(currentYearMonth);
+			counter.setSequenceValue(1);
+			mongoTemplate.save(counter);
+		} else {
+			Query updateQuery = new Query(Criteria.where("_id").is(sequenceName));
+			Update update = new Update().inc("sequenceValue", 1);
+			FindAndModifyOptions options = FindAndModifyOptions.options().returnNew(true);
+			counter = mongoTemplate.findAndModify(updateQuery, update, options, JobCardCounters.class);
+			if (counter == null) {
+				throw new RuntimeException("Error incrementing sequence for " + sequenceName);
+			}
+		}
+
+		// Concatenate yearMonth and sequenceValue
+		int result = Integer.parseInt(currentYearMonth + String.format("%03d", counter.getSequenceValue()));
+
+		// Return the final result as an integer
+		return result;
+	}
+
 	public List<?> findAll() {
 		return jobCardRepository.findAllByOrderByIdDesc();
 	}
 
 	public JobCard save(JobCard jobCard) {
-		jobCard.setJobId(getNextSequence("jobCardId"));
+		jobCard.setJobId(getNextJobCardIdSequenceAsInteger("jobCardId"));
 		jobCard.setJobCreationDate(LocalDateTime.now());
 		jobCard = jobCardRepository.save(jobCard);
 
@@ -324,32 +360,32 @@ public class JobCardService {
 //		return jobSparesRepository.findById(id).orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>())
 //				.jobConsumablesInfo(new ArrayList<>()).jobLaborInfo(new ArrayList<>()).build());
 //	}
-	
+
 	public JobSpares getJobSpares(String id) {
-	    JobSpares jobSpares = jobSparesRepository.findById(id)
-	            .orElse(JobSpares.builder()
-	                    .jobSparesInfo(new ArrayList<>())
-	                    .jobConsumablesInfo(new ArrayList<>())
-	                    .jobLaborInfo(new ArrayList<>())
-	                    .build());
+		JobSpares jobSpares = jobSparesRepository.findById(id)
+				.orElse(JobSpares.builder().jobSparesInfo(new ArrayList<>()).jobConsumablesInfo(new ArrayList<>())
+						.jobLaborInfo(new ArrayList<>()).jobExternalWorkInfo(new ArrayList<>()).build());
 
-	    // Ensure non-null lists
-	    if (jobSpares.getJobSparesInfo() == null) {
-	    	jobSpares.setTotalSparesValue(BigDecimal.ZERO);
-	        jobSpares.setJobSparesInfo(new ArrayList<>());
-	    }
-	    if (jobSpares.getJobConsumablesInfo() == null) {
-	    	jobSpares.setTotalConsumablesValue(BigDecimal.ZERO);
-	        jobSpares.setJobConsumablesInfo(new ArrayList<>());
-	    }
-	    if (jobSpares.getJobLaborInfo() == null) {
-	    	jobSpares.setTotalLabourValue(BigDecimal.ZERO);
-	        jobSpares.setJobLaborInfo(new ArrayList<>());
-	    }
+		// Ensure non-null lists
+		if (jobSpares.getJobSparesInfo() == null) {
+			jobSpares.setTotalSparesValue(BigDecimal.ZERO);
+			jobSpares.setJobSparesInfo(new ArrayList<>());
+		}
+		if (jobSpares.getJobConsumablesInfo() == null) {
+			jobSpares.setTotalConsumablesValue(BigDecimal.ZERO);
+			jobSpares.setJobConsumablesInfo(new ArrayList<>());
+		}
+		if (jobSpares.getJobLaborInfo() == null) {
+			jobSpares.setTotalLabourValue(BigDecimal.ZERO);
+			jobSpares.setJobLaborInfo(new ArrayList<>());
+		}
+		if (jobSpares.getJobExternalWorkInfo() == null) {
+			jobSpares.setTotalExternalWorkValue(BigDecimal.ZERO);
+			jobSpares.setJobExternalWorkInfo(new ArrayList<>());
+		}
 
-	    return jobSpares;
+		return jobSpares;
 	}
-
 
 	public synchronized JobCard updateJobStatus(JobCard jobCard) throws Exception {
 		JobCard origJobCard = jobCardRepository.findById(jobCard.getId()).orElse(null);
@@ -364,8 +400,8 @@ public class JobCardService {
 				}
 				LocalDateTime jobCloseDate = LocalDateTime.now();
 				origJobCard.setJobCloseDate(jobCloseDate);
-				if(origJobCard.getInvoiceId() == null)
-				    origJobCard.setInvoiceId(getNextSequence("invoiceId"));
+				if (origJobCard.getInvoiceId() == null)
+					origJobCard.setInvoiceId(getNextSequence("invoiceId"));
 				JobSpares origJobSpares = jobSparesRepository.findById(jobCard.getId()).orElse(null);
 				if (origJobSpares != null) {
 					origJobSpares.setJobCloseDate(jobCloseDate);
@@ -403,39 +439,39 @@ public class JobCardService {
 //			throw new Exception("Total amount calculation is wrong in UI");
 //		}
 //	}
-	
+
 	private void calculateTotals(JobSpares origJobSpares) throws Exception {
-	    // Calculate total spares value
-	    BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo() != null
-	            ? origJobSpares.getJobSparesInfo().stream()
-	                .map(JobSparesInfo::getAmount)
-	                .filter(Objects::nonNull)
-	                .reduce(BigDecimal.ZERO, BigDecimal::add)
-	            : BigDecimal.ZERO;
+		// Calculate total spares value
+		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo() != null
+				? origJobSpares.getJobSparesInfo().stream().map(JobSparesInfo::getAmount).filter(Objects::nonNull)
+						.reduce(BigDecimal.ZERO, BigDecimal::add)
+				: BigDecimal.ZERO;
 
-	    // Calculate total labor value
-	    BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo() != null
-	            ? origJobSpares.getJobLaborInfo().stream()
-	                .map(JobSparesInfo::getAmount)
-	                .filter(Objects::nonNull)
-	                .reduce(BigDecimal.ZERO, BigDecimal::add)
-	            : BigDecimal.ZERO;
+		// Calculate total labor value
+		BigDecimal totalLabourValue = origJobSpares.getJobLaborInfo() != null
+				? origJobSpares.getJobLaborInfo().stream().map(JobSparesInfo::getAmount).filter(Objects::nonNull)
+						.reduce(BigDecimal.ZERO, BigDecimal::add)
+				: BigDecimal.ZERO;
 
-	    // Calculate total consumables value only if not null
-	    BigDecimal totalConsumablesValue = origJobSpares.getJobConsumablesInfo() != null
-	            ? origJobSpares.getJobConsumablesInfo().stream()
-	                .map(JobSparesInfo::getAmount)
-	                .filter(Objects::nonNull)
-	                .reduce(BigDecimal.ZERO, BigDecimal::add)
-	            : BigDecimal.ZERO;
+		// Calculate total consumables value only if not null
+		BigDecimal totalConsumablesValue = origJobSpares.getJobConsumablesInfo() != null
+				? origJobSpares.getJobConsumablesInfo().stream().map(JobSparesInfo::getAmount).filter(Objects::nonNull)
+						.reduce(BigDecimal.ZERO, BigDecimal::add)
+				: BigDecimal.ZERO;
 
-	    // Calculate the grand total
-	    BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue);
+		BigDecimal totalExternalWorkValue = origJobSpares.getJobExternalWorkInfo() != null
+				? origJobSpares.getJobExternalWorkInfo().stream().map(JobSparesInfo::getAmount).filter(Objects::nonNull)
+						.reduce(BigDecimal.ZERO, BigDecimal::add)
+				: BigDecimal.ZERO;
 
-	    // Validate the grand total
-	    if (origJobSpares.getGrandTotal() != null && !grandTotal.equals(origJobSpares.getGrandTotal())) {
-	        throw new Exception("Total amount calculation is wrong in UI");
-	    }
+		// Calculate the grand total
+		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue)
+				.add(totalExternalWorkValue);
+
+		// Validate the grand total
+		if (origJobSpares.getGrandTotal() != null && !grandTotal.equals(origJobSpares.getGrandTotal())) {
+			throw new Exception("Total amount calculation is wrong in UI");
+		}
 	}
 
 	public ResponseEntity<?> generateJobCardPdf(String id) throws Exception {
@@ -597,7 +633,7 @@ public class JobCardService {
 				}
 			}
 			if (jobSpares.getJobConsumablesInfo() != null) {
-				Cell labourCell = new Cell().add(new Paragraph("Labour")).setTextAlignment(TextAlignment.CENTER)
+				Cell labourCell = new Cell().add(new Paragraph("Consumables")).setTextAlignment(TextAlignment.CENTER)
 						.setBold();
 //				Cell qtyLabourCell = new Cell().add(new Paragraph("Qty.")).setTextAlignment(TextAlignment.CENTER)
 //						.setBold();
@@ -642,6 +678,30 @@ public class JobCardService {
 							.setTextAlignment(TextAlignment.RIGHT));
 				}
 			}
+			if (jobSpares.getJobExternalWorkInfo() != null) {
+				Cell externalWorkCell = new Cell().add(new Paragraph("ExternalWork"))
+						.setTextAlignment(TextAlignment.CENTER).setBold();
+				Cell qtyExternalWorkCell = new Cell().add(new Paragraph("Qty.")).setTextAlignment(TextAlignment.CENTER)
+						.setBold();
+				Cell rateExternalWorkCell = new Cell().add(new Paragraph("Rate")).setTextAlignment(TextAlignment.CENTER)
+						.setBold();
+				Cell amountExternalWorkCell = new Cell().add(new Paragraph("Amount"))
+						.setTextAlignment(TextAlignment.CENTER).setBold();
+				table3.addCell(externalWorkCell);
+				table3.addCell(qtyExternalWorkCell);
+				table3.addCell(rateExternalWorkCell);
+				table3.addCell(amountExternalWorkCell);
+
+				for (JobSparesInfo jobExternalWorkInfo : jobSpares.getJobExternalWorkInfo()) {
+					table3.addCell(stringNullCheck(jobExternalWorkInfo.getSparesAndLabour()));
+					table3.addCell(new Cell().add(new Paragraph(jobExternalWorkInfo.getQty().toString()))
+							.setTextAlignment(TextAlignment.RIGHT));
+					table3.addCell(new Cell().add(new Paragraph(jobExternalWorkInfo.getRate().toString()))
+							.setTextAlignment(TextAlignment.RIGHT));
+					table3.addCell(new Cell().add(new Paragraph(jobExternalWorkInfo.getAmount().toString()))
+							.setTextAlignment(TextAlignment.RIGHT));
+				}
+			}
 
 			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Spares Value")).setTextAlignment(TextAlignment.RIGHT)
 					.setBold());
@@ -655,6 +715,11 @@ public class JobCardService {
 			table3.addCell(new Cell(1, 2).add(new Paragraph("Total Labour Value")).setTextAlignment(TextAlignment.RIGHT)
 					.setBold());
 			table3.addCell(new Cell(1, 2).add(new Paragraph(stringNullCheck(jobSpares.getTotalLabourValue()))
+					.setTextAlignment(TextAlignment.RIGHT)));
+
+			table3.addCell(new Cell(1, 2).add(new Paragraph("Total ExternalWork Value"))
+					.setTextAlignment(TextAlignment.RIGHT).setBold());
+			table3.addCell(new Cell(1, 2).add(new Paragraph(stringNullCheck(jobSpares.getTotalExternalWorkValue()))
 					.setTextAlignment(TextAlignment.RIGHT)));
 
 			table3.addCell(
@@ -1095,6 +1160,9 @@ public class JobCardService {
 			if (jobSpares.getJobLaborInfo() != null) {
 				totalCount = totalCount + jobSpares.getJobLaborInfo().size();
 			}
+			if (jobSpares.getJobExternalWorkInfo() != null) {
+				totalCount = totalCount + jobSpares.getJobExternalWorkInfo().size();
+			}
 		}
 		if (totalCount > 25) {
 			deltaCount = deltaCount + 4;
@@ -1147,7 +1215,7 @@ public class JobCardService {
 				if (rowCount > deltaCount) {
 					document.add(itemTable);
 					document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
-					itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15  }));
+					itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
 					itemTable.setWidth(UnitValue.createPercentValue(100));
 					rowCount = 0;
 					page++;
@@ -1159,6 +1227,33 @@ public class JobCardService {
 
 		if (jobSpares != null && jobSpares.getJobLaborInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
+				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+						.add(new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+
+				rowCount++;
+				if (rowCount > deltaCount) {
+					document.add(itemTable);
+					document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
+					itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
+					itemTable.setWidth(UnitValue.createPercentValue(100));
+					rowCount = 0;
+					page++;
+					if (page > 1)
+						deltaCount = 28;
+				}
+			}
+		}
+
+		if (jobSpares != null && jobSpares.getJobExternalWorkInfo() != null) {
+			for (JobSparesInfo sparesInfo : jobSpares.getJobExternalWorkInfo()) {
 				itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 						.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
 				itemTable.addCell(new Cell().setMaxHeight(rowHeight)

@@ -12,5 +12,6 @@ public class JobCardCounters {
 	@Id
     private String id;
     private int sequenceValue;
+    private int yearMonth;
 
 }

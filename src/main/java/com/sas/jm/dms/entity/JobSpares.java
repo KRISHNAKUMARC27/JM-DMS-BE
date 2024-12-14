@@ -21,9 +21,11 @@ public class JobSpares {
 	private List<JobSparesInfo> jobSparesInfo;
 	private List<JobSparesInfo> jobConsumablesInfo;
 	private List<JobSparesInfo> jobLaborInfo;
+	private List<JobSparesInfo> jobExternalWorkInfo;
 	private BigDecimal totalSparesValue;
 	private BigDecimal totalConsumablesValue;
 	private BigDecimal totalLabourValue;
+	private BigDecimal totalExternalWorkValue;
 	private BigDecimal grandTotal;
 
 }

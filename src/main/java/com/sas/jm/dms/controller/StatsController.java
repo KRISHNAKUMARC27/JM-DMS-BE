@@ -71,6 +71,21 @@ public class StatsController {
 		}
 	}
 
+	@GetMapping("/yearlyBarStatsJobCards/{id}")
+	public Map<String, Object> yearlyBarStatsJobCards(@PathVariable String id) {
+		return statsService.yearlyBarStatsJobCards(id);
+	}
+	
+	@GetMapping("/yearlyBarStatsTotalRevenue/{id}")
+	public Map<String, Object> yearlyBarStatsTotalRevenue(@PathVariable String id) {
+		return statsService.yearlyBarStatsTotalRevenue(id);
+	}
+	
+	@GetMapping("/yearlyStatsEarningSplit/{id}")
+	public Map<String, Object> yearlyStatsEarningSplit(@PathVariable String id) {
+		return statsService.yearlyStatsEarningSplit(id);
+	}
+
 	@GetMapping("/totalRevenue")
 	public Map<String, BigDecimal> getTotalRevenue() {
 		return statsService.getTotalRevenue();

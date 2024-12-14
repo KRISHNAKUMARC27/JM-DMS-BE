@@ -7,11 +7,13 @@ import java.time.LocalDateTime;
 import java.time.temporal.TemporalAdjusters;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 
 import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
@@ -563,9 +565,19 @@ public class StatsService {
 		return yearMap;
 	}
 
-	private Map<Integer, Integer> calculateYearlyJobCards(List<JobSpares> jobSparesList) {
+	private Map<Integer, BigDecimal> initializeYearMapJobCardsEarning() {
+		Map<Integer, BigDecimal> yearMap = new HashMap<>();
+		for (int month = 1; month <= 12; month++) {
+			yearMap.put(month, BigDecimal.ZERO);
+		}
+		return yearMap;
+	}
+
+	private Map<Integer, Integer> calculateYearlyJobCards(List<JobSpares> jobSparesList, String year) {
 		Map<Integer, Integer> yearlyJobCards = initializeYearMapJobCards();
 		int currentYear = LocalDate.now().getYear();
+		if (year != null)
+			currentYear = Integer.parseInt(year);
 
 		for (JobSpares job : jobSparesList) {
 			if (job.getJobCloseDate() != null) {
@@ -580,22 +592,22 @@ public class StatsService {
 		return yearlyJobCards;
 	}
 
-	private List<Integer> getYearlyJobCardsSeries(List<JobSpares> jobSparesList) {
-		Map<Integer, Integer> yearlyJobCards = calculateYearlyJobCards(jobSparesList);
+	private List<Integer> getYearlyJobCardsSeries(List<JobSpares> jobSparesList, String year) {
+		Map<Integer, Integer> yearlyJobCards = calculateYearlyJobCards(jobSparesList, year);
 		List<Integer> earningsSeries = new ArrayList<>();
 
-		int currentMonth = LocalDate.now().getMonthValue();
+		// int currentMonth = LocalDate.now().getMonthValue();
 		for (int month = 1; month <= 12; month++) {
-			if (month <= currentMonth) {
-				earningsSeries.add(yearlyJobCards.get(month));
-			}
+			// if (month <= currentMonth) {
+			earningsSeries.add(yearlyJobCards.get(month));
 		}
+		// }
 		return earningsSeries;
 	}
 
 	public Map<String, Object> yearlyStatsJobCards() {
 		List<JobSpares> currentSpares = getJobsClosedThisYear();
-		List<Integer> jobCardSeries = getYearlyJobCardsSeries(currentSpares);
+		List<Integer> jobCardSeries = getYearlyJobCardsSeries(currentSpares, null);
 
 		Map<String, Object> currentValues = new HashMap<>();
 		currentValues.put("jobCardSeries", jobCardSeries);
@@ -609,7 +621,7 @@ public class StatsService {
 		chartData.put("series", List.of(seriesItem));
 
 		Map<String, Object> options = (Map<String, Object>) chartData.get("options");
-		options.put("yaxis", Map.of("min", 0, "max", 1000));
+		options.put("yaxis", Map.of("min", 0, "max", 250));
 
 		currentValues.put("chartData", chartData);
 
@@ -690,6 +702,298 @@ public class StatsService {
 		countMap.put("cancelled", jobCardRepository.countByJobStatus("CANCELLED"));
 
 		return countMap;
+	}
+
+	public Map<String, Object> yearlyBarStatsJobCards(String year) {
+
+		List<JobSpares> currentSpares = getJobsClosedForTheYear(year);
+
+		List<Integer> jobCardSeries = getYearlyJobCardsSeries(currentSpares, year);
+
+		Map<String, Object> currentValues = new HashMap<>();
+		currentValues.put("totalJobCard", currentSpares.size());
+
+		Map<String, Object> chartData = getBarChartData();
+
+		List<Map<String, Object>> series = Arrays.asList(createSeries("Completed", jobCardSeries));
+
+		chartData.put("series", series);
+
+		currentValues.put("chartData", chartData);
+
+		return currentValues;
+	}
+
+	private List<JobSpares> getJobsClosedForTheYear(String year) {
+		// Parse the year parameter to an integer
+		int targetYear = Integer.parseInt(year);
+
+		// Calculate startOfYear and endOfYear based on the target year
+		LocalDateTime startOfYear = LocalDate.of(targetYear, 1, 1).atStartOfDay();
+		LocalDateTime endOfYear = LocalDate.of(targetYear, 12, 31).atTime(23, 59, 59);
+
+		// Use the calculated dates to fetch data
+		return jobSparesRepository.findByJobCloseDateBetween(startOfYear, endOfYear);
+	}
+
+	public Map<String, Object> getBarChartData() {
+		Map<String, Object> chartData = new HashMap<>();
+
+		chartData.put("height", 480);
+		chartData.put("type", "bar");
+
+		// options
+		Map<String, Object> options = new HashMap<>();
+		Map<String, Object> chart = new HashMap<>();
+		chart.put("id", "bar-chart");
+		chart.put("stacked", true);
+
+		Map<String, Object> toolbar = new HashMap<>();
+		toolbar.put("show", true);
+		chart.put("toolbar", toolbar);
+
+		Map<String, Object> zoom = new HashMap<>();
+		zoom.put("enabled", true);
+		chart.put("zoom", zoom);
+		options.put("chart", chart);
+
+		// responsive
+		Map<String, Object> responsiveOption = new HashMap<>();
+		responsiveOption.put("breakpoint", 480);
+
+		Map<String, Object> responsiveOptionNested = new HashMap<>();
+		Map<String, Object> legendNested = new HashMap<>();
+		legendNested.put("position", "bottom");
+		legendNested.put("offsetX", -10);
+		legendNested.put("offsetY", 0);
+		responsiveOptionNested.put("legend", legendNested);
+
+		responsiveOption.put("options", responsiveOptionNested);
+		options.put("responsive", Arrays.asList(responsiveOption));
+
+		// plotOptions
+		Map<String, Object> plotOptions = new HashMap<>();
+		Map<String, Object> bar = new HashMap<>();
+		bar.put("horizontal", false);
+		bar.put("columnWidth", "50%");
+		plotOptions.put("bar", bar);
+		options.put("plotOptions", plotOptions);
+
+		// xaxis
+		Map<String, Object> xaxis = new HashMap<>();
+		xaxis.put("type", "category");
+		xaxis.put("categories",
+				Arrays.asList("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"));
+		options.put("xaxis", xaxis);
+
+		// legend
+		Map<String, Object> legend = new HashMap<>();
+		legend.put("show", true);
+		legend.put("fontSize", "14px");
+		legend.put("fontFamily", "'Roboto', sans-serif");
+		legend.put("position", "bottom");
+		legend.put("offsetX", 20);
+
+		Map<String, Object> labels = new HashMap<>();
+		labels.put("useSeriesColors", false);
+		legend.put("labels", labels);
+
+		Map<String, Object> markers = new HashMap<>();
+		markers.put("width", 16);
+		markers.put("height", 16);
+		markers.put("radius", 5);
+		legend.put("markers", markers);
+
+		Map<String, Object> itemMargin = new HashMap<>();
+		itemMargin.put("horizontal", 15);
+		itemMargin.put("vertical", 8);
+		legend.put("itemMargin", itemMargin);
+		options.put("legend", legend);
+
+		// fill
+		Map<String, Object> fill = new HashMap<>();
+		fill.put("type", "solid");
+		options.put("fill", fill);
+
+		// dataLabels
+		Map<String, Object> dataLabels = new HashMap<>();
+		dataLabels.put("enabled", false);
+		options.put("dataLabels", dataLabels);
+
+		// grid
+		Map<String, Object> grid = new HashMap<>();
+		grid.put("show", true);
+		options.put("grid", grid);
+
+		chartData.put("options", options);
+
+		// series
+		List<Map<String, Object>> series = Arrays.asList(
+				createSeries("Investment", Arrays.asList(35, 125, 35, 35, 35, 80, 35, 20, 35, 45, 15, 75)),
+				createSeries("Loss", Arrays.asList(35, 15, 15, 35, 65, 40, 80, 25, 15, 85, 25, 75)),
+				createSeries("Profit", Arrays.asList(35, 145, 35, 35, 20, 105, 100, 10, 65, 45, 30, 10)),
+				createSeries("Maintenance", Arrays.asList(0, 0, 75, 0, 0, 115, 0, 0, 0, 0, 150, 0)));
+
+		chartData.put("series", series);
+		return chartData;
+	}
+
+	private static Map<String, Object> createSeries(String name, List<Integer> data) {
+		Map<String, Object> series = new HashMap<>();
+		series.put("name", name);
+		series.put("data", data);
+		return series;
+	}
+
+	private static Map<String, Object> createSeriesEarning(String name, List<BigDecimal> data) {
+		Map<String, Object> series = new HashMap<>();
+		series.put("name", name);
+		series.put("data", data);
+		return series;
+	}
+
+	public Map<String, Object> yearlyBarStatsTotalRevenue(String year) {
+
+		List<JobSpares> currentSpares = getJobsClosedForTheYear(year);
+
+		List<BigDecimal> jobCardEarningSeries = getYearlyJobCardEarningSeries(currentSpares, year);
+
+		Map<String, Object> currentValues = new HashMap<>();
+		currentValues.put("totalJobCard", currentSpares.size());
+
+		Map<String, Object> chartData = getBarChartData();
+
+		List<Map<String, Object>> series = Arrays.asList(createSeriesEarning("Completed", jobCardEarningSeries));
+
+		chartData.put("series", series);
+
+		currentValues.put("chartData", chartData);
+
+		return currentValues;
+	}
+
+	private List<BigDecimal> getYearlyJobCardEarningSeries(List<JobSpares> jobSparesList, String year) {
+		Map<Integer, BigDecimal> yearlyJobCardsEarning = calculateYearlyJobCardsEarning(jobSparesList, year);
+		List<BigDecimal> earningsSeries = new ArrayList<>();
+
+		// int currentMonth = LocalDate.now().getMonthValue();
+		for (int month = 1; month <= 12; month++) {
+			// if (month <= currentMonth) {
+			earningsSeries.add(yearlyJobCardsEarning.get(month));
+		}
+		// }
+		return earningsSeries;
+	}
+
+	private Map<Integer, BigDecimal> calculateYearlyJobCardsEarning(List<JobSpares> jobSparesList, String year) {
+		Map<Integer, BigDecimal> yearlyJobCards = initializeYearMapJobCardsEarning();
+		int currentYear = LocalDate.now().getYear();
+		if (year != null)
+			currentYear = Integer.parseInt(year);
+
+		for (JobSpares job : jobSparesList) {
+			if (job.getJobCloseDate() != null) {
+				LocalDate jobDate = job.getJobCloseDate().toLocalDate();
+				if (jobDate.getYear() == currentYear) {
+					int month = jobDate.getMonthValue();
+					BigDecimal currentTotal = yearlyJobCards.get(month);
+					yearlyJobCards.put(month, currentTotal.add(job.getGrandTotal()));
+				}
+			}
+		}
+		return yearlyJobCards;
+	}
+
+	public Map<String, Object> yearlyStatsEarningSplit(String year) {
+		List<JobSpares> currentSpares = getJobsClosedForTheYear(year);
+		List<Map<String, BigDecimal>> jobSparesSeries = getYearlyEarningSplitSeries(currentSpares, year);
+
+		List<BigDecimal> sparesSeries = new ArrayList<>();
+		List<BigDecimal> laborSeries = new ArrayList<>();
+		List<BigDecimal> consumablesSeries = new ArrayList<>();
+		List<BigDecimal> externalWorkSeries = new ArrayList<>();
+
+		for (Map<String, BigDecimal> map : jobSparesSeries) {
+			sparesSeries.add(map.get("SPARES"));
+			laborSeries.add(map.get("LABOR"));
+			consumablesSeries.add(map.get("CONSUMABLES"));
+			externalWorkSeries.add(map.get("EXTERNALWORK"));
+		}
+
+		BigDecimal totalGrandTotal = currentSpares.stream().map(JobSpares::getGrandTotal) // Extract the grandTotal
+																							// field from each JobSpares
+																							// object
+				.filter(Objects::nonNull) // Filter out any null values to avoid NullPointerException
+				.reduce(BigDecimal.ZERO, BigDecimal::add); // Sum up all the values
+
+		Map<String, Object> currentValues = new HashMap<>();
+		currentValues.put("totalRevenue", totalGrandTotal);
+
+		Map<String, Object> chartData = getBarChartData();
+
+		List<Map<String, Object>> series = Arrays.asList(createSeriesEarning("SPARES", sparesSeries),
+				createSeriesEarning("LABOR", laborSeries), createSeriesEarning("CONSUMABLES", consumablesSeries),
+				createSeriesEarning("EXTERNALWORK", externalWorkSeries));
+
+		chartData.put("series", series);
+
+		currentValues.put("chartData", chartData);
+
+		return currentValues;
+	}
+
+	private List<Map<String, BigDecimal>> getYearlyEarningSplitSeries(List<JobSpares> jobSparesList, String year) {
+		Map<Integer, Map<String, BigDecimal>> yearlyJobCardsEarning = calculateYearlyEarningSplit(jobSparesList, year);
+		List<Map<String, BigDecimal>> earningsSeries = new ArrayList<>();
+
+		// int currentMonth = LocalDate.now().getMonthValue();
+		for (int month = 1; month <= 12; month++) {
+			// if (month <= currentMonth) {
+			earningsSeries.add(yearlyJobCardsEarning.get(month));
+		}
+		// }
+		return earningsSeries;
+	}
+
+	private Map<Integer, Map<String, BigDecimal>> calculateYearlyEarningSplit(List<JobSpares> jobSparesList,
+			String year) {
+		Map<Integer, Map<String, BigDecimal>> yearlyJobCards = initializeYearMapEarningSplit();
+		int currentYear = LocalDate.now().getYear();
+		if (year != null)
+			currentYear = Integer.parseInt(year);
+
+		for (JobSpares job : jobSparesList) {
+			if (job.getJobCloseDate() != null) {
+				LocalDate jobDate = job.getJobCloseDate().toLocalDate();
+				if (jobDate.getYear() == currentYear) {
+					int month = jobDate.getMonthValue();
+
+					Map<String, BigDecimal> currentTotal = yearlyJobCards.get(month);
+					currentTotal.put("SPARES",
+							currentTotal.getOrDefault("SPARES", BigDecimal.ZERO).add(job.getTotalSparesValue()));
+					currentTotal.put("LABOR",
+							currentTotal.getOrDefault("LABOR", BigDecimal.ZERO).add(job.getTotalLabourValue()));
+					currentTotal.put("CONSUMABLES", currentTotal.getOrDefault("CONSUMABLES", BigDecimal.ZERO).add(
+							job.getTotalConsumablesValue() != null ? job.getTotalConsumablesValue() : BigDecimal.ZERO));
+					currentTotal.put("EXTERNALWORK",
+							currentTotal.getOrDefault("EXTERNALWORK", BigDecimal.ZERO)
+									.add(job.getTotalExternalWorkValue() != null ? job.getTotalExternalWorkValue()
+											: BigDecimal.ZERO));
+
+					yearlyJobCards.put(month, currentTotal);
+				}
+			}
+		}
+		return yearlyJobCards;
+	}
+
+	private Map<Integer, Map<String, BigDecimal>> initializeYearMapEarningSplit() {
+		Map<Integer, Map<String, BigDecimal>> yearMap = new HashMap<>();
+		for (int month = 1; month <= 12; month++) {
+			Map<String, BigDecimal> counts = new HashMap<>();
+			yearMap.put(month, counts);
+		}
+		return yearMap;
 	}
 
 }
