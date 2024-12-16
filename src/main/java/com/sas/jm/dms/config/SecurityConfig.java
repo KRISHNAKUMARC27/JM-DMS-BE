@@ -35,7 +35,7 @@ public class SecurityConfig {
 	    http.csrf(csrf -> csrf.disable()) // Disable CSRF
 	        .cors(cors -> cors.configurationSource(corsConfigurationSource())) // Add CORS configuration
 	        .authorizeHttpRequests(auth -> auth
-	            .requestMatchers("/api/auth/**").permitAll() // Allow public access to auth endpoints
+	            .requestMatchers("/auth/**").permitAll() // Allow public access to auth endpoints
 	            .requestMatchers("/admin/**").hasRole("ADMIN") // Only ADMIN can access /admin/** endpoints
 //	            .requestMatchers("/user/**").hasAnyRole("USER", "ADMIN") // USER or ADMIN can access /user/** endpoints
 	            .anyRequest().authenticated() // All other endpoints require authentication

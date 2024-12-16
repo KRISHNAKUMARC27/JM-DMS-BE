@@ -24,7 +24,7 @@ import com.sas.jm.dms.repository.RoleRepository;
 import com.sas.jm.dms.repository.UserRepository;
 
 @RestController
-@RequestMapping("/api/auth")
+@RequestMapping("/auth")
 public class AuthController {
 
     private final AuthenticationManager authenticationManager;
