@@ -15,7 +15,7 @@ import io.jsonwebtoken.SignatureAlgorithm;
 public class JwtUtil {
 
     private static final String SECRET_KEY = "FaqmJw9JlDj3_z47dPGXArptrT9Q8CuJryCoFkKe"; // Replace with a strong secret
-    private static final int EXPIRATION_MS = 3600000; // 1 hour
+    private static final int EXPIRATION_MS = 86400000; // 1 hour
 
     Key key = new SecretKeySpec(SECRET_KEY.getBytes(), SignatureAlgorithm.HS256.getJcaName());
 
