@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.sas.jm.dms.model.JobCardReport;
 import com.sas.jm.dms.service.StatsService;
 
 import lombok.RequiredArgsConstructor;
@@ -96,4 +97,8 @@ public class StatsController {
 		return statsService.getTotalJobCards();
 	}
 
+	@GetMapping("/jobCardReport/{month}/{year}")
+	public List<JobCardReport> getJobSparesByMonthAndYear(@PathVariable String month, @PathVariable String year) {
+		return statsService.getJobSparesByMonthAndYear(Integer.valueOf(month), Integer.valueOf(year));
+	}
 }

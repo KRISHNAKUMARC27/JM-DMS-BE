@@ -4,6 +4,7 @@ import java.math.BigDecimal;
 import java.time.DayOfWeek;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.YearMonth;
 import java.time.temporal.TemporalAdjusters;
 import java.time.temporal.WeekFields;
 import java.util.ArrayList;
@@ -19,9 +20,11 @@ import org.springframework.context.event.ContextRefreshedEvent;
 import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
+import com.sas.jm.dms.entity.JobCard;
 import com.sas.jm.dms.entity.JobSpares;
 import com.sas.jm.dms.entity.SparesEvents;
 import com.sas.jm.dms.entity.SparesInventory;
+import com.sas.jm.dms.model.JobCardReport;
 import com.sas.jm.dms.repository.JobCardRepository;
 import com.sas.jm.dms.repository.JobSparesRepository;
 import com.sas.jm.dms.repository.SparesEventsRepository;
@@ -994,6 +997,43 @@ public class StatsService {
 			yearMap.put(month, counts);
 		}
 		return yearMap;
+	}
+
+	public List<JobCardReport> getJobSparesByMonthAndYear(int month, int year) {
+		YearMonth yearMonth = YearMonth.of(year, month);
+		LocalDateTime startDate = yearMonth.atDay(1).atStartOfDay();
+		LocalDateTime endDate = yearMonth.plusMonths(1).atDay(1).atStartOfDay();
+		List<JobSpares> jobSparesList = jobSparesRepository.findByJobCloseDateBetween(startDate, endDate);
+
+		Map<String, JobSpares> jobSparesMap = new HashMap<>();
+		jobSparesList.stream().forEach(jobSpares -> {
+			jobSparesMap.put(jobSpares.getId(), jobSpares);
+		});
+		List<JobCard> jobCardList = jobCardRepository.findByJobCloseDateBetweenAndJobStatusOrderByJobIdDesc(startDate,
+				endDate, "CLOSED");
+
+		List<JobCardReport> jobCardReportList = new ArrayList<>();
+		for (JobCard jobCard : jobCardList) {
+			JobSpares jobSpares = jobSparesMap.get(jobCard.getId());
+			JobCardReport jobCardReport = null;
+			if (jobSpares != null) {
+				jobCardReport = JobCardReport.builder().jobId(jobCard.getJobId()).invoiceId(jobCard.getInvoiceId())
+						.jobStatus(jobCard.getJobStatus()).jobCloseDate(jobCard.getJobCloseDate())
+						.vehicleRegNo(jobCard.getVehicleRegNo()).totalSparesValue(jobSpares.getTotalSparesValue())
+						.totalConsumablesValue(jobSpares.getTotalConsumablesValue() != null ? jobSpares.getTotalConsumablesValue() : BigDecimal.ZERO)
+						.totalExternalWorkValue(jobSpares.getTotalExternalWorkValue() != null ? jobSpares.getTotalExternalWorkValue() : BigDecimal.ZERO)
+						.totalLabourValue(jobSpares.getTotalLabourValue() != null ? jobSpares.getTotalLabourValue() : BigDecimal.ZERO)
+						.grandTotal(jobSpares.getGrandTotal() != null ? jobSpares.getGrandTotal() : BigDecimal.ZERO)
+						.build();
+			} else {
+				jobCardReport = JobCardReport.builder().jobId(jobCard.getJobId()).invoiceId(jobCard.getInvoiceId())
+						.jobStatus(jobCard.getJobStatus()).jobCloseDate(jobCard.getJobCloseDate())
+						.vehicleRegNo(jobCard.getVehicleRegNo()).build();
+			}
+			jobCardReportList.add(jobCardReport);
+		}
+		
+		return jobCardReportList;
 	}
 
 }
