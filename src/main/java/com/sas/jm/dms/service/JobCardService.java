@@ -399,18 +399,22 @@ public class JobCardService {
 					}
 				}
 				LocalDateTime jobCloseDate = LocalDateTime.now();
-				origJobCard.setJobCloseDate(jobCloseDate);
+				if(origJobCard.getJobCloseDate() == null)
+				    origJobCard.setJobCloseDate(jobCloseDate);
+				
 				if (origJobCard.getInvoiceId() == null)
 					origJobCard.setInvoiceId(getNextSequence("invoiceId"));
 				JobSpares origJobSpares = jobSparesRepository.findById(jobCard.getId()).orElse(null);
 				if (origJobSpares != null) {
-					origJobSpares.setJobCloseDate(jobCloseDate);
+					if(origJobSpares.getJobCloseDate() == null)
+					    origJobSpares.setJobCloseDate(jobCloseDate);
+					
 					calculateTotals(origJobSpares);
 					jobSparesRepository.save(origJobSpares);
 				}
 			}
 		} else {
-			throw new Exception("Invalid jobCard or JobCard already Closed " + jobCard.getJobId());
+			//throw new Exception("Invalid jobCard or JobCard already Closed " + jobCard.getJobId());
 			// should never come here
 		}
 		origJobCard.setJobStatus(jobCard.getJobStatus());
