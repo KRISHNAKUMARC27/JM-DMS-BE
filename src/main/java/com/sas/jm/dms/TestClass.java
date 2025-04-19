@@ -30,12 +30,17 @@
 //		Set<String> jobCardSet = new HashSet<>();
 //		for (JobCard jobCard : jobCardList) {
 //			if (String.valueOf(jobCard.getJobCloseDate()).contains("2024-12")) {
+////			if (String.valueOf(jobCard.getJobCreationDate()).contains("2024-12")) {
+////				if (String.valueOf(jobCard.getJobCloseDate()).contains("2025-01-02")) {
 //				jobCardCount++;
 //				jobCardSet.add(jobCard.getId());
+////				System.out.println("JobCard " + jobCard.getJobId() + " Vehicle " + jobCard.getVehicleRegNo() + " Name "
+////						+ jobCard.getVehicleName());
+//
 //			}
 //		}
 //
-//		System.out.println("jobCardCount count of Novemeber 2024 " + jobCardSet.size());
+//		System.out.println("jobCardCount count of 2024 " + jobCardSet.size());
 //
 //		List<JobSpares> jobSparesList = jobSparesRepository.findAll();
 //		Set<String> jobSparesSet = new HashSet<>();
@@ -47,7 +52,7 @@
 //			}
 //		}
 //
-//		System.out.println("jobSparesCount count of Novemeber 2024 " + jobSparesSet.size());
+//		System.out.println("jobSparesCount count of December 2024 " + jobSparesSet.size());
 //
 //		jobCardSet.removeAll(jobSparesSet);
 //
@@ -61,8 +66,8 @@
 //				System.out.println("Null JS " + jc.getVehicleRegNo());
 //			} else {
 //				System.out.println("JobSpares " + id + "    " + js.getJobCloseDate());
-////				js.setJobCloseDate(jc.getJobCloseDate());
-////				jobSparesRepository.save(js);
+//				js.setJobCloseDate(jc.getJobCloseDate());
+//				jobSparesRepository.save(js);
 //			}
 //		}
 //

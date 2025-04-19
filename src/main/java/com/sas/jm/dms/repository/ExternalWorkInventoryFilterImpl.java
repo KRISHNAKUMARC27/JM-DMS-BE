@@ -11,7 +11,6 @@ import org.springframework.data.mongodb.core.query.Update;
 import org.springframework.stereotype.Repository;
 
 import com.sas.jm.dms.entity.ExternalWorkInventory;
-import com.sas.jm.dms.entity.LaborInventory;
 
 @Repository
 public class ExternalWorkInventoryFilterImpl implements ExternalWorkInventoryFilter {
@@ -41,7 +40,7 @@ public class ExternalWorkInventoryFilterImpl implements ExternalWorkInventoryFil
 	public void updateCategory(String oldCategory, String newCategory) {
 	    Query query = new Query(Criteria.where("category").is(oldCategory));
 	    Update update = new Update().set("category", newCategory);
-	    mongoTemplate.updateMulti(query, update, LaborInventory.class);
+	    mongoTemplate.updateMulti(query, update, ExternalWorkInventory.class);
 	}
 
 }

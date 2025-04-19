@@ -341,6 +341,7 @@ public class JobCardService {
 			// Update the job spares list and set action to null
 			filteredJobSparesInfoList.forEach(jobSparesInfo -> jobSparesInfo.setAction(null));
 			jobSpares.setJobSparesInfo(filteredJobSparesInfoList);
+			jobSpares = calculateTotals(jobSpares);	
 
 		} catch (Exception ex) {
 			for (Map.Entry<String, BigDecimal> entry : previousQuantities.entrySet()) {
@@ -444,7 +445,7 @@ public class JobCardService {
 //		}
 //	}
 
-	private void calculateTotals(JobSpares origJobSpares) throws Exception {
+	private JobSpares calculateTotals(JobSpares origJobSpares) throws Exception {
 		// Calculate total spares value
 		BigDecimal totalSparesValue = origJobSpares.getJobSparesInfo() != null
 				? origJobSpares.getJobSparesInfo().stream().map(JobSparesInfo::getAmount).filter(Objects::nonNull)
@@ -472,10 +473,17 @@ public class JobCardService {
 		BigDecimal grandTotal = totalSparesValue.add(totalLabourValue).add(totalConsumablesValue)
 				.add(totalExternalWorkValue);
 
+		origJobSpares.setGrandTotal(grandTotal);
+		origJobSpares.setTotalConsumablesValue(totalConsumablesValue);
+		origJobSpares.setTotalExternalWorkValue(totalExternalWorkValue);
+		origJobSpares.setTotalSparesValue(totalSparesValue);
+		origJobSpares.setTotalLabourValue(totalLabourValue);
+		
+		return origJobSpares;
 		// Validate the grand total
-		if (origJobSpares.getGrandTotal() != null && !grandTotal.equals(origJobSpares.getGrandTotal())) {
-			throw new Exception("Total amount calculation is wrong in UI");
-		}
+//		if (origJobSpares.getGrandTotal() != null && !grandTotal.equals(origJobSpares.getGrandTotal())) {
+//			throw new Exception("Total amount calculation is wrong in UI");
+//		}
 	}
 
 	public ResponseEntity<?> generateJobCardPdf(String id) throws Exception {
@@ -1114,7 +1122,7 @@ public class JobCardService {
 		customerInfoTable.addCell(new Cell().add(new Paragraph("Ph No. " + jobCard.getOwnerPhoneNumber())
 				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 
-		customerInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(LocalDateTime.now()))
+		customerInfoTable.addCell(new Cell().add(new Paragraph("Date: " + createDateString(jobCard.getJobCreationDate()))
 				.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 
 		document.add(customerInfoTable);
@@ -1136,7 +1144,7 @@ public class JobCardService {
 		Table orderInfoTable = new Table(UnitValue.createPercentArray(new float[] { 50, 50 }));
 		orderInfoTable.setWidth(UnitValue.createPercentValue(100));
 		orderInfoTable.addCell(new Cell()
-				.add(new Paragraph("Customer’s Order No & Date: " + createDateString(jobCard.getJobCreationDate()))
+				.add(new Paragraph("Print Date: " + createDateString(LocalDateTime.now()))
 						.setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
 		orderInfoTable.addCell(new Cell().add(
 				new Paragraph("Job No: " + jobCard.getJobId()).setFontSize(10).setTextAlignment(TextAlignment.LEFT)));
@@ -1181,12 +1189,15 @@ public class JobCardService {
 		if (jobSpares != null && jobSpares.getJobSparesInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobSparesInfo()) {
 				if (sparesInfo.getQty() != null) {
+					String cleanedText = removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour());
+					int linesUsed = estimateLineCount(cleanedText, 50); // Adjust 50 based on column width
+					rowCount += linesUsed;
 					String units = sparesInfo.getUnits() != null ? sparesInfo.getUnits() : "";
 
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+							new Paragraph(cleanedText)));
 					itemTable.addCell(
 							new Cell().setMaxHeight(rowHeight).add(new Paragraph(sparesInfo.getQty().toString() + units)
 									.setTextAlignment(TextAlignment.RIGHT)));
@@ -1195,7 +1206,7 @@ public class JobCardService {
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
 							new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
 
-					rowCount++;
+					//rowCount++;
 					if (rowCount > deltaCount) {
 						document.add(itemTable);
 						document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
@@ -1213,17 +1224,24 @@ public class JobCardService {
 		if (jobSpares != null && jobSpares.getJobConsumablesInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobConsumablesInfo()) {
 				if (sparesInfo.getSparesAndLabour() != null) {
+					String cleanedText = removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour());
+					int linesUsed = estimateLineCount(cleanedText, 50); // Adjust 50 based on column width
+					rowCount += linesUsed;
+
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+					itemTable.addCell(new Cell()
+						    .add(new Paragraph(cleanedText)
+						    .setTextAlignment(TextAlignment.LEFT)
+						    .setMultipliedLeading(1.2f)  // Optional: Adjust line spacing
+						    .setMarginBottom(5)));       // Optional: Add space below if needed
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph("").setTextAlignment(TextAlignment.RIGHT)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph("").setTextAlignment(TextAlignment.RIGHT)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
 							new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
-					rowCount++;
+					//rowCount++;
 					if (rowCount > deltaCount) {
 						document.add(itemTable);
 						document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
@@ -1241,10 +1259,13 @@ public class JobCardService {
 		if (jobSpares != null && jobSpares.getJobLaborInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
 				if (sparesInfo.getQty() != null) {
+					String cleanedText = removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour());
+					int linesUsed = estimateLineCount(cleanedText, 50); // Adjust 50 based on column width
+					rowCount += linesUsed;
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+							new Paragraph(cleanedText)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
@@ -1252,7 +1273,7 @@ public class JobCardService {
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
 							new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
 
-					rowCount++;
+					//rowCount++;
 					if (rowCount > deltaCount) {
 						document.add(itemTable);
 						document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
@@ -1270,10 +1291,13 @@ public class JobCardService {
 		if (jobSpares != null && jobSpares.getJobExternalWorkInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobExternalWorkInfo()) {
 				if (sparesInfo.getQty() != null) {
+					String cleanedText = removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour());
+					int linesUsed = estimateLineCount(cleanedText, 50); // Adjust 50 based on column width
+					rowCount += linesUsed;
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour()))));
+							new Paragraph(cleanedText)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
@@ -1281,7 +1305,7 @@ public class JobCardService {
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
 							new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
 
-					rowCount++;
+					//rowCount++;
 					if (rowCount > deltaCount) {
 						document.add(itemTable);
 						document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
@@ -1357,5 +1381,12 @@ public class JobCardService {
 		return ResponseEntity.ok().headers(headers).contentLength(resource.contentLength())
 				.contentType(MediaType.APPLICATION_PDF).body(resource);
 	}
+	
+	private int estimateLineCount(String text, int maxCharsPerLine) {
+		if (text == null) return 1;
+		int length = text.length();
+		return (int) Math.ceil((double) length / maxCharsPerLine);
+	}
+
 
 }
