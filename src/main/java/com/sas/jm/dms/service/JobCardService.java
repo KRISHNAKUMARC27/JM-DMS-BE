@@ -1196,8 +1196,11 @@ public class JobCardService {
 
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(cleanedText)));
+					itemTable.addCell(new Cell()
+						    .add(new Paragraph(cleanedText)
+						    .setTextAlignment(TextAlignment.LEFT)
+						    .setMultipliedLeading(1.2f)  // Optional: Adjust line spacing
+						    .setMarginBottom(5)));       // Optional: Add space below if needed
 					itemTable.addCell(
 							new Cell().setMaxHeight(rowHeight).add(new Paragraph(sparesInfo.getQty().toString() + units)
 									.setTextAlignment(TextAlignment.RIGHT)));
@@ -1264,8 +1267,11 @@ public class JobCardService {
 					rowCount += linesUsed;
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(cleanedText)));
+					itemTable.addCell(new Cell()
+						    .add(new Paragraph(cleanedText)
+						    .setTextAlignment(TextAlignment.LEFT)
+						    .setMultipliedLeading(1.2f)  // Optional: Adjust line spacing
+						    .setMarginBottom(5)));       // Optional: Add space below if needed
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
@@ -1296,8 +1302,11 @@ public class JobCardService {
 					rowCount += linesUsed;
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(cleanedText)));
+					itemTable.addCell(new Cell()
+						    .add(new Paragraph(cleanedText)
+						    .setTextAlignment(TextAlignment.LEFT)
+						    .setMultipliedLeading(1.2f)  // Optional: Adjust line spacing
+						    .setMarginBottom(5)));       // Optional: Add space below if needed
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
 							.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
 					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
