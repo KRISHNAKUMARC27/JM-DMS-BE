@@ -66,7 +66,7 @@ public class JobCardService {
 
 	private String[] emailRecepients = { "krishnakumarc27@gmail.com" };
 
-	private Integer rowsPerPage = 20;
+	private Integer rowsPerPage = 21;
 	float rowHeight = 18f;
 
 	public int getNextSequence(String sequenceName) {
@@ -1167,24 +1167,24 @@ public class JobCardService {
 		int deltaCount = rowsPerPage;
 		int page = 1;
 
-		int totalCount = 0;
-		if (jobSpares != null) {
-			if (jobSpares.getJobSparesInfo() != null) {
-				totalCount = totalCount + jobSpares.getJobSparesInfo().size();
-			}
-			if (jobSpares.getJobConsumablesInfo() != null) {
-				totalCount = totalCount + jobSpares.getJobConsumablesInfo().size();
-			}
-			if (jobSpares.getJobLaborInfo() != null) {
-				totalCount = totalCount + jobSpares.getJobLaborInfo().size();
-			}
-			if (jobSpares.getJobExternalWorkInfo() != null) {
-				totalCount = totalCount + jobSpares.getJobExternalWorkInfo().size();
-			}
-		}
-		if (totalCount > 25) {
-			deltaCount = deltaCount + 4;
-		}
+//		int totalCount = 0;
+//		if (jobSpares != null) {
+//			if (jobSpares.getJobSparesInfo() != null) {
+//				totalCount = totalCount + jobSpares.getJobSparesInfo().size();
+//			}
+//			if (jobSpares.getJobConsumablesInfo() != null) {
+//				totalCount = totalCount + jobSpares.getJobConsumablesInfo().size();
+//			}
+//			if (jobSpares.getJobLaborInfo() != null) {
+//				totalCount = totalCount + jobSpares.getJobLaborInfo().size();
+//			}
+//			if (jobSpares.getJobExternalWorkInfo() != null) {
+//				totalCount = totalCount + jobSpares.getJobExternalWorkInfo().size();
+//			}
+//		}
+//		if (totalCount > 23) {
+//			deltaCount = deltaCount + 4;
+//		}
 
 		if (jobSpares != null && jobSpares.getJobSparesInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobSparesInfo()) {
@@ -1259,41 +1259,6 @@ public class JobCardService {
 			}
 		}
 
-		if (jobSpares != null && jobSpares.getJobLaborInfo() != null) {
-			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
-				if (sparesInfo.getQty() != null) {
-					String cleanedText = removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour());
-					int linesUsed = estimateLineCount(cleanedText, 50); // Adjust 50 based on column width
-					rowCount += linesUsed;
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
-							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
-					itemTable.addCell(new Cell()
-						    .add(new Paragraph(cleanedText)
-						    .setTextAlignment(TextAlignment.LEFT)
-						    .setMultipliedLeading(1.2f)  // Optional: Adjust line spacing
-						    .setMarginBottom(5)));       // Optional: Add space below if needed
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
-							.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
-							.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
-					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
-							new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
-
-					//rowCount++;
-					if (rowCount > deltaCount) {
-						document.add(itemTable);
-						document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
-						itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
-						itemTable.setWidth(UnitValue.createPercentValue(100));
-						rowCount = 0;
-						page++;
-						if (page > 1)
-							deltaCount = 28;
-					}
-				}
-			}
-		}
-
 		if (jobSpares != null && jobSpares.getJobExternalWorkInfo() != null) {
 			for (JobSparesInfo sparesInfo : jobSpares.getJobExternalWorkInfo()) {
 				if (sparesInfo.getQty() != null) {
@@ -1329,6 +1294,41 @@ public class JobCardService {
 			}
 		}
 
+		if (jobSpares != null && jobSpares.getJobLaborInfo() != null) {
+			for (JobSparesInfo sparesInfo : jobSpares.getJobLaborInfo()) {
+				if (sparesInfo.getQty() != null) {
+					String cleanedText = removeJobSparesBracketFieldsAndNullCheck(sparesInfo.getSparesAndLabour());
+					int linesUsed = estimateLineCount(cleanedText, 50); // Adjust 50 based on column width
+					rowCount += linesUsed;
+					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+							.add(new Paragraph(String.valueOf(itemIndex++)).setTextAlignment(TextAlignment.CENTER)));
+					itemTable.addCell(new Cell()
+						    .add(new Paragraph(cleanedText)
+						    .setTextAlignment(TextAlignment.LEFT)
+						    .setMultipliedLeading(1.2f)  // Optional: Adjust line spacing
+						    .setMarginBottom(5)));       // Optional: Add space below if needed
+					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+							.add(new Paragraph(sparesInfo.getQty().toString()).setTextAlignment(TextAlignment.RIGHT)));
+					itemTable.addCell(new Cell().setMaxHeight(rowHeight)
+							.add(new Paragraph(sparesInfo.getRate().toString()).setTextAlignment(TextAlignment.RIGHT)));
+					itemTable.addCell(new Cell().setMaxHeight(rowHeight).add(
+							new Paragraph(sparesInfo.getAmount().toString()).setTextAlignment(TextAlignment.RIGHT)));
+
+					//rowCount++;
+					if (rowCount > deltaCount) {
+						document.add(itemTable);
+						document.add(new AreaBreak(AreaBreakType.NEXT_PAGE)); // Start a new page
+						itemTable = new Table(UnitValue.createPercentArray(new float[] { 5, 60, 10, 10, 15 }));
+						itemTable.setWidth(UnitValue.createPercentValue(100));
+						rowCount = 0;
+						page++;
+						if (page > 1)
+							deltaCount = 28;
+					}
+				}
+			}
+		}
+		
 		while (rowCount < deltaCount) {
 			addEmptyRow(itemTable);
 			rowCount++;
